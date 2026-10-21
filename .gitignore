@@ -1,0 +1,24 @@
+# dependencies
+node_modules/
+
+# build
+dist/
+dist-ssr/
+
+# env
+.env
+.env.*
+!.env.example
+
+# local
+*.local
+.DS_Store
+Thumbs.db
+
+# editor
+.vscode/*
+!.vscode/extensions.json
+
+# logs
+npm-debug.log*
+yarn-error.log*

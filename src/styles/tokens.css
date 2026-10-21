@@ -1,0 +1,50 @@
+/* ==========================================================================
+   F App — design tokens
+   Brend palitrasi spetsifikatsiyadan: navy / electric blue / gold
+   ========================================================================== */
+
+:root {
+  /* Brand */
+  --f-navy: #071a33;
+  --f-navy-deep: #07111f;
+  --f-blue: #1677ff;
+  --f-blue-soft: #6fb6ff;
+  --f-gold: #ffd447;
+  --f-white: #f7f9fc;
+
+  /* Yorug'lik aksentlari (logo gradientiga mos) */
+  --f-violet: #8b5cf6;
+  --f-pink: #c86bff;
+
+  /* Dark theme (default) */
+  --bg: var(--f-navy-deep);
+  --bg-elevated: #0c1a2e;
+  --surface: rgba(255, 255, 255, 0.04);
+  --border: rgba(150, 190, 255, 0.14);
+  --text: #f2f6ff;
+  --text-muted: #8fa6c6;
+
+  /* Radius */
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+  --r-full: 999px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg: var(--f-white);
+  --bg-elevated: #ffffff;
+  --surface: rgba(7, 26, 51, 0.04);
+  --border: rgba(7, 26, 51, 0.1);
+  --text: #071a33;
+  --text-muted: #5a708f;
+
+  color-scheme: light;
+}
