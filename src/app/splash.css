@@ -1,6 +1,5 @@
 /* ==========================================================================
-   Kirish ekrani — purpur kosmik fon
-   Barcha effekt CSS gradientlarda: rasm yuklanmaydi, 0 KB qo'shimcha so'rov.
+   Kirish (splash) ekrani — fon CosmicBackground komponentida
    ========================================================================== */
 
 .splash {
@@ -9,150 +8,12 @@
   display: grid;
   place-items: center;
   overflow: hidden;
-  background-color: #2a1668;
-  background-image:
-    radial-gradient(75% 65% at 16% 10%, #8f4dff 0%, rgba(143, 77, 255, 0) 62%),
-    radial-gradient(58% 52% at 74% 6%, #5a3cf0 0%, rgba(90, 60, 240, 0) 64%),
-    radial-gradient(62% 58% at 18% 80%, #a63cff 0%, rgba(166, 60, 255, 0) 64%),
-    radial-gradient(58% 52% at 90% 72%, #3f52d8 0%, rgba(63, 82, 216, 0) 66%),
-    linear-gradient(160deg, #4b2499 0%, #341a74 46%, #1d1149 100%);
+  background: #2a1668;
 }
 
-/* --------------------------------------------------------------------------
-   Osmon qatlamlari
-   -------------------------------------------------------------------------- */
-.splash__sky {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-/* Sut yo'li — burchak ostida yotgan juda nozik tuman */
-.splash__haze {
-  position: absolute;
-  left: -20%;
-  top: 42%;
-  width: 140%;
-  height: 34%;
-  transform: rotate(-18deg);
-  background: radial-gradient(
-    50% 50% at 50% 50%,
-    rgba(214, 196, 255, 0.16),
-    rgba(150, 120, 255, 0.08) 45%,
-    transparent 72%
-  );
-  filter: blur(24px);
-}
-
-/* --------------------------------------------------------------------------
-   Yulduzlar — 3 qatlam (uzoq / o'rta / yaqin)
-   -------------------------------------------------------------------------- */
-.stars {
-  position: absolute;
-  inset: -12%;
-  background-repeat: repeat;
-  will-change: transform, opacity;
-}
-
-.stars--dust {
-  background-image:
-    radial-gradient(0.8px 0.8px at 18px 22px, #ffffff, transparent 60%),
-    radial-gradient(0.8px 0.8px at 54px 74px, #e9e2ff, transparent 60%),
-    radial-gradient(0.8px 0.8px at 88px 12px, #ffffff, transparent 60%),
-    radial-gradient(0.8px 0.8px at 12px 88px, #ffffff, transparent 60%),
-    radial-gradient(0.8px 0.8px at 70px 54px, #f4f0ff, transparent 60%),
-    radial-gradient(0.8px 0.8px at 40px 40px, #ffffff, transparent 60%);
-  background-size: 97px 97px;
-  opacity: 0.38;
-}
-
-.stars--far {
-  background-image:
-    radial-gradient(1px 1px at 14px 32px, #ffffff, transparent 60%),
-    radial-gradient(1px 1px at 78px 14px, #ded6ff, transparent 60%),
-    radial-gradient(1px 1px at 142px 70px, #ffffff, transparent 60%),
-    radial-gradient(1px 1px at 44px 118px, #cfc6ff, transparent 60%),
-    radial-gradient(1px 1px at 158px 152px, #ffffff, transparent 60%),
-    radial-gradient(1px 1px at 108px 96px, #ffffff, transparent 60%),
-    radial-gradient(1px 1px at 22px 166px, #e8e2ff, transparent 60%),
-    radial-gradient(1px 1px at 172px 26px, #ffffff, transparent 60%),
-    radial-gradient(1px 1px at 62px 62px, #ffffff, transparent 60%),
-    radial-gradient(1px 1px at 124px 132px, #efe9ff, transparent 60%),
-    radial-gradient(1px 1px at 96px 148px, #ffffff, transparent 60%),
-    radial-gradient(1px 1px at 34px 8px, #ffffff, transparent 60%),
-    radial-gradient(1px 1px at 166px 108px, #dfd6ff, transparent 60%),
-    radial-gradient(1px 1px at 130px 176px, #ffffff, transparent 60%);
-  background-size: 181px 181px;
-  opacity: 0.55;
-  animation: twinkle 7s ease-in-out infinite alternate, drift 110s linear infinite;
-}
-
-.stars--mid {
-  background-image:
-    radial-gradient(1.4px 1.4px at 46px 88px, #ffffff, transparent 55%),
-    radial-gradient(1.3px 1.3px at 132px 34px, #e4dcff, transparent 55%),
-    radial-gradient(1.5px 1.5px at 196px 128px, #ffffff, transparent 55%),
-    radial-gradient(1.2px 1.2px at 88px 186px, #ffffff, transparent 55%),
-    radial-gradient(1.4px 1.4px at 238px 74px, #d9d0ff, transparent 55%),
-    radial-gradient(1.3px 1.3px at 24px 224px, #ffffff, transparent 55%),
-    radial-gradient(1.2px 1.2px at 172px 18px, #ffffff, transparent 55%),
-    radial-gradient(1.4px 1.4px at 212px 226px, #f0eaff, transparent 55%),
-    radial-gradient(1.3px 1.3px at 106px 138px, #ffffff, transparent 55%),
-    radial-gradient(1.2px 1.2px at 60px 232px, #ffffff, transparent 55%);
-  background-size: 263px 263px;
-  opacity: 0.75;
-  animation: twinkle 9.5s ease-in-out infinite alternate-reverse, drift 160s linear infinite;
-}
-
-.stars--near {
-  background-image:
-    radial-gradient(2px 2px at 62px 142px, #ffffff 0 38%, rgba(255, 255, 255, 0.4) 55%, transparent 72%),
-    radial-gradient(1.8px 1.8px at 268px 58px, #ffffff 0 36%, rgba(230, 220, 255, 0.4) 55%, transparent 72%),
-    radial-gradient(2.2px 2.2px at 168px 316px, #ffffff 0 38%, rgba(255, 255, 255, 0.35) 55%, transparent 72%),
-    radial-gradient(1.7px 1.7px at 344px 224px, #f2ecff 0 36%, rgba(255, 255, 255, 0.3) 55%, transparent 72%),
-    radial-gradient(1.9px 1.9px at 96px 34px, #ffffff 0 36%, rgba(255, 255, 255, 0.3) 55%, transparent 72%),
-    radial-gradient(1.8px 1.8px at 300px 348px, #ffffff 0 36%, rgba(255, 255, 255, 0.28) 55%, transparent 72%);
-  background-size: 397px 397px;
-  opacity: 0.9;
-  animation: twinkle 12s ease-in-out infinite alternate, drift 220s linear infinite;
-}
-
-/* --------------------------------------------------------------------------
-   Yorqin yulduzlar (4 qirrali chaqnash)
-   -------------------------------------------------------------------------- */
-.spark {
-  position: absolute;
-  background:
-    radial-gradient(circle, #ffffff 0 1.6px, rgba(255, 255, 255, 0.35) 30%, transparent 62%),
-    linear-gradient(to right, transparent, rgba(255, 255, 255, 0.85), transparent) center / 100% 1.4px no-repeat,
-    linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.85), transparent) center / 1.4px 100% no-repeat;
-  animation: spark-pulse 6s ease-in-out infinite;
-  opacity: 0.85;
-}
-
-.spark--1 { left: 12%; top: 16%; width: 22px; height: 22px; animation-delay: 0.4s; }
-.spark--2 { left: 84%; top: 9%; width: 16px; height: 16px; animation-delay: 2.1s; }
-.spark--3 { left: 76%; top: 78%; width: 26px; height: 26px; animation-delay: 3.4s; }
-.spark--4 { left: 8%; top: 72%; width: 15px; height: 15px; animation-delay: 1.2s; }
-.spark--5 { left: 46%; top: 90%; width: 18px; height: 18px; animation-delay: 4.6s; }
-
-/* Chetlarni qoraytirish — markaz diqqatda qoladi */
-.splash__vignette {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    ellipse 78% 68% at 50% 50%,
-    transparent 40%,
-    rgba(14, 6, 38, 0.28) 72%,
-    rgba(8, 3, 24, 0.6) 100%
-  );
-}
-
-/* --------------------------------------------------------------------------
-   Logotip
-   -------------------------------------------------------------------------- */
 .splash__stage {
   position: relative;
+  z-index: 1;
   display: grid;
   place-items: center;
   padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
@@ -171,9 +32,6 @@
   -webkit-user-drag: none;
 }
 
-/* --------------------------------------------------------------------------
-   Animatsiyalar
-   -------------------------------------------------------------------------- */
 @keyframes logo-in {
   from {
     opacity: 0;
@@ -185,24 +43,6 @@
   }
 }
 
-@keyframes twinkle {
-  from { opacity: 0.45; }
-  to { opacity: 0.95; }
-}
-
-@keyframes drift {
-  from { transform: translate3d(0, 0, 0); }
-  to { transform: translate3d(-18px, -34px, 0); }
-}
-
-@keyframes spark-pulse {
-  0%, 100% { opacity: 0.35; transform: scale(0.9); }
-  50% { opacity: 1; transform: scale(1); }
-}
-
-/* --------------------------------------------------------------------------
-   Moslashuv
-   -------------------------------------------------------------------------- */
 @media (min-width: 900px) {
   .splash__logo,
   .splash__fallback {
@@ -211,11 +51,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stars,
-  .spark {
-    animation: none;
-  }
-
   .splash__logo,
   .splash__fallback {
     animation: none;

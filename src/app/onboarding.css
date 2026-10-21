@@ -1,0 +1,388 @@
+/* ==========================================================================
+   Onboarding — 3 qadamli tanishuv
+   Mobil: vertikal (rasm tepada, matn pastda)
+   Desktop: gorizontal ikki ustunli karta
+   ========================================================================== */
+
+.ob {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #2a1668;
+  touch-action: pan-y;
+}
+
+.ob__shell {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: calc(env(safe-area-inset-top) + 20px) 22px calc(env(safe-area-inset-bottom) + 22px);
+}
+
+/* --------------------------------------------------------------------------
+   Rasm paneli
+   -------------------------------------------------------------------------- */
+.ob__art {
+  display: grid;
+  place-items: center;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  padding: 6px 0 20px;
+}
+
+.ob__panel {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(100%, 360px);
+  aspect-ratio: 1 / 1;
+  max-height: 100%;
+  border-radius: 32px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.17);
+  box-shadow:
+    inset 0 0 70px rgba(255, 255, 255, 0.07),
+    0 30px 70px rgba(10, 3, 34, 0.5);
+}
+
+.ob__panel--blue {
+  background:
+    radial-gradient(120% 120% at 22% 12%, rgba(96, 172, 255, 0.5), transparent 62%),
+    radial-gradient(95% 95% at 82% 92%, rgba(74, 84, 255, 0.42), transparent 64%),
+    linear-gradient(160deg, rgba(72, 124, 255, 0.3), rgba(22, 10, 72, 0.28));
+}
+
+.ob__panel--pink {
+  background:
+    radial-gradient(120% 120% at 20% 10%, rgba(255, 118, 214, 0.48), transparent 62%),
+    radial-gradient(95% 95% at 84% 90%, rgba(150, 80, 255, 0.45), transparent 64%),
+    linear-gradient(160deg, rgba(214, 86, 178, 0.28), rgba(30, 10, 70, 0.3));
+}
+
+.ob__panel--violet {
+  background:
+    radial-gradient(120% 120% at 24% 10%, rgba(150, 108, 255, 0.5), transparent 62%),
+    radial-gradient(95% 95% at 82% 92%, rgba(64, 132, 255, 0.4), transparent 64%),
+    linear-gradient(160deg, rgba(112, 76, 240, 0.3), rgba(20, 10, 60, 0.3));
+}
+
+.ob__ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+}
+
+.ob__ring--outer {
+  width: 78%;
+  aspect-ratio: 1;
+}
+
+.ob__ring--inner {
+  width: 54%;
+  aspect-ratio: 1;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.ob__glyph {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 38%;
+  aspect-ratio: 1;
+  color: rgba(255, 255, 255, 0.94);
+  filter: drop-shadow(0 16px 40px rgba(120, 80, 255, 0.55));
+  animation: ob-pop 520ms var(--ease-out) both;
+}
+
+/* Ikonka panel o'lchamiga qarab masshtablanadi */
+.ob__glyph svg {
+  width: 100%;
+  height: 100%;
+}
+
+.ob__chips {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ob__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: var(--r-full);
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  color: #f1ebff;
+  background: rgba(18, 8, 46, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(10px);
+}
+
+.ob__chip svg {
+  color: #bcd6ff;
+}
+
+/* --------------------------------------------------------------------------
+   Matn va boshqaruv
+   -------------------------------------------------------------------------- */
+.ob__content {
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 0 2px;
+}
+
+.ob__text h1 {
+  font-size: clamp(26px, 7vw, 32px);
+  line-height: 1.14;
+  font-weight: 700;
+  letter-spacing: -0.022em;
+}
+
+.ob__text p {
+  margin-top: 12px;
+  max-width: 44ch;
+  font-size: 15px;
+  line-height: 1.62;
+  color: rgba(232, 226, 255, 0.74);
+}
+
+.ob__text--next {
+  animation: ob-in-next 380ms var(--ease-out) both;
+}
+
+.ob__text--prev {
+  animation: ob-in-prev 380ms var(--ease-out) both;
+}
+
+.ob__controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 26px;
+}
+
+.ob__skip {
+  padding: 10px 2px;
+  font-size: 14px;
+  color: rgba(234, 228, 255, 0.52);
+  border-radius: 8px;
+  transition: color 0.2s;
+}
+
+.ob__skip:hover {
+  color: #ffffff;
+}
+
+.ob__dots {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ob__dot {
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border-radius: var(--r-full);
+  background: rgba(255, 255, 255, 0.28);
+  transition: width 0.28s var(--ease-out), background 0.28s;
+}
+
+.ob__dot.is-active {
+  width: 22px;
+  background: linear-gradient(90deg, #9ad4ff, #c9a8ff);
+}
+
+.ob__next {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  color: #ffffff;
+  background: linear-gradient(140deg, #6db6ff 0%, #6f6bff 55%, #9a63ff 100%);
+  box-shadow: 0 14px 34px rgba(88, 44, 208, 0.45);
+  transition: transform 0.18s var(--ease-out), box-shadow 0.2s;
+}
+
+.ob__next:hover {
+  transform: translateY(-1px) scale(1.03);
+  box-shadow: 0 18px 40px rgba(88, 44, 208, 0.55);
+}
+
+.ob__next:active {
+  transform: scale(0.96);
+}
+
+/* --------------------------------------------------------------------------
+   Animatsiyalar
+   -------------------------------------------------------------------------- */
+@keyframes ob-in-next {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ob-in-prev {
+  from {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ob-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Desktop — butunlay boshqa kompozitsiya
+   -------------------------------------------------------------------------- */
+@media (min-width: 900px) {
+  .ob {
+    padding: 40px;
+  }
+
+  .ob__shell {
+    display: grid;
+    grid-template-columns: 1.04fr 0.96fr;
+    align-items: center;
+    gap: 56px;
+    width: 100%;
+    max-width: 1080px;
+    height: auto;
+    max-height: 100%;
+    padding: 48px;
+    border-radius: 36px;
+    background: rgba(14, 7, 40, 0.34);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 50px 120px rgba(8, 3, 26, 0.55);
+    backdrop-filter: blur(20px);
+  }
+
+  .ob__art {
+    padding: 0;
+  }
+
+  .ob__panel {
+    width: 100%;
+    max-width: none;
+    aspect-ratio: 1 / 1;
+  }
+
+  .ob__glyph {
+    width: 32%;
+  }
+
+  .ob__content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .ob__text h1 {
+    font-size: 44px;
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+  }
+
+  .ob__text p {
+    margin-top: 16px;
+    font-size: 16.5px;
+    line-height: 1.65;
+    max-width: 38ch;
+  }
+
+  .ob__controls {
+    margin-top: 44px;
+  }
+
+  .ob__next {
+    width: 60px;
+    height: 60px;
+  }
+}
+
+/* O'rta o'lchamli desktop — siqilib qolmasin */
+@media (min-width: 900px) and (max-width: 1160px) {
+  .ob__shell {
+    gap: 36px;
+    padding: 34px;
+  }
+
+  .ob__text h1 {
+    font-size: 36px;
+  }
+
+  .ob__text p {
+    margin-top: 14px;
+    font-size: 15px;
+  }
+
+  .ob__controls {
+    margin-top: 32px;
+  }
+}
+
+/* Past ekranlar (landscape telefon) */
+@media (max-height: 620px) and (max-width: 899px) {
+  .ob__panel {
+    aspect-ratio: 16 / 9;
+  }
+
+  .ob__chips {
+    bottom: 10px;
+  }
+
+  .ob__text h1 {
+    font-size: 22px;
+  }
+
+  .ob__text p {
+    font-size: 13.5px;
+    margin-top: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ob__text,
+  .ob__glyph {
+    animation: none;
+  }
+}
