@@ -2,6 +2,8 @@
 
 One app. One ecosystem. Endless possibilities.
 
+**Jonli sayt:** <https://programmerf2009-hash.github.io/F-App/>
+
 Hozirgi holat: **kirish (splash) ekrani**.
 
 ## Ishga tushirish
@@ -56,6 +58,16 @@ Fon to'liq CSS gradientlarda qurilgan — hech qanday rasm yuklanmaydi:
 - 4 qatlam yulduzlar (`radial-gradient` tile'lar) + 5 ta yorqin chaqnash
 - sut yo'li tumani va chekka vignette
 - sekin "twinkle" va drift animatsiyalari (`prefers-reduced-motion`da o'chadi)
+
+## Deploy (GitHub Pages)
+
+`main` branch'ga har push bo'lganda `.github/workflows/deploy.yml` avtomatik ishlaydi:
+`npm ci` → `npm run build` → `dist/` Pages'ga yuklanadi.
+
+- Sayt manzili: `https://<username>.github.io/F-App/`
+- Subfolder uchun `VITE_BASE=/F-App/` workflow ichida beriladi
+- Pages: **Settings → Pages → Source: GitHub Actions**
+- Eski (avvalgi) kontent `legacy` branch'ida saqlangan
 
 ## Keyingi qadamlar
 
