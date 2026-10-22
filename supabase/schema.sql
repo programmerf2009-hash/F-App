@@ -683,7 +683,7 @@ create policy "media_visible_to_owner_friends_or_public"
       or exists (
         select 1
         from public.posts p
-        where p.media_path = storage.objects.name
+        where (p.media_path = name or p.poster_path = name)
           and (
             p.owner_id = auth.uid()
             or p.visibility = 'public'
@@ -693,7 +693,7 @@ create policy "media_visible_to_owner_friends_or_public"
       or exists (
         select 1
         from public.stories s
-        where s.media_path = storage.objects.name
+        where (s.media_path = name or s.poster_path = name)
           and s.expires_at > now()
           and public.are_friends(auth.uid(), s.owner_id)
       )
