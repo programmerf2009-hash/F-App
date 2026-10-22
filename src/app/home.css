@@ -1,25 +1,11 @@
 /* ==========================================================================
    Home — kurslar, ob-havo, yangiliklar, aksiyalar, xizmatlar
    --------------------------------------------------------------------------
-   Ikki tema:
-     [data-theme="dark"]  — hozirgi, to'q navy (default)
-     [data-theme="gold"]  — tayyor turgan, lekin hozircha yoqilmagan tema
-   Tema faqat `.home` ichida ishlaydi, shuning uchun gold'ni keyinchalik
-   Sozlamalar ekranidan yoqish uchun atributni almashtirish kifoya.
+   Ranglar (--h-*) `styles/surfaces.css`da, chunki ularni Settings ham
+   ishlatadi. Tema ildiz elementdagi [data-theme] atributi bilan almashadi.
    ========================================================================== */
 
 .home {
-  /* To'q navy tema */
-  --h-bg: #050b14;
-  --h-text: #f2f6ff;
-  --h-muted: #8ba3c4;
-  --h-faint: #61799a;
-  --h-border: rgba(130, 175, 255, 0.14);
-  --h-accent: #4d9aff;
-  --h-good: #4ade9b;
-  --h-bad: #ff8ba3;
-  --h-sheet: #0a1524;
-
   position: fixed;
   inset: 0;
   overflow-x: hidden;
@@ -153,11 +139,19 @@
   place-items: center;
   width: 100%;
   height: 100%;
+  overflow: hidden;
   border-radius: 50%;
   background: #0a1626;
   color: #dbe9ff;
   font-size: 13px;
   font-weight: 700;
+}
+
+.avatar__photo {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .avatar__menu {
@@ -189,6 +183,7 @@
   flex: none;
   width: 36px;
   height: 36px;
+  overflow: hidden;
   border-radius: 50%;
   background: linear-gradient(150deg, #2f7dff, #7b5cff);
   color: #ffffff;
@@ -832,97 +827,6 @@
 }
 
 /* --------------------------------------------------------------------------
-   Pastki menyu
-   -------------------------------------------------------------------------- */
-.tabbar {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 40;
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  align-items: center;
-  padding: 7px 8px calc(7px + env(safe-area-inset-bottom));
-  border-top: 1px solid rgba(130, 175, 255, 0.12);
-  background: rgba(6, 13, 23, 0.84);
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
-}
-
-.tabbar__item {
-  display: grid;
-  justify-items: center;
-  gap: 3px;
-  padding: 3px 0;
-  border-radius: 12px;
-  color: var(--h-faint);
-  transition: color 0.18s;
-}
-
-.tabbar__icon {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 26px;
-  border-radius: 999px;
-  transition: background 0.2s, color 0.2s;
-}
-
-.tabbar__label {
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-.tabbar__item.is-active {
-  color: var(--h-accent);
-}
-
-.tabbar__item.is-active .tabbar__icon {
-  background: rgba(59, 140, 255, 0.16);
-}
-
-.tabbar__item:not(.is-active):hover {
-  color: #cfe0ff;
-}
-
-.tabbar__slot {
-  display: grid;
-  place-items: center;
-  height: 46px;
-}
-
-.tabbar__slot::before {
-  content: "";
-  width: 22px;
-  height: 22px;
-  border: 1px dashed rgba(130, 175, 255, 0.18);
-  border-radius: 50%;
-}
-
-/* --------------------------------------------------------------------------
-   Toast
-   -------------------------------------------------------------------------- */
-.toast {
-  position: fixed;
-  bottom: calc(90px + env(safe-area-inset-bottom));
-  left: 50%;
-  z-index: 90;
-  max-width: calc(100% - 40px);
-  padding: 9px 14px;
-  border: 1px solid rgba(130, 175, 255, 0.18);
-  border-radius: 999px;
-  background: rgba(12, 24, 42, 0.94);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
-  color: #dbe9ff;
-  font-size: 12px;
-  text-align: center;
-  transform: translateX(-50%);
-  animation: toast-in 220ms var(--ease-out) both;
-}
-
-/* --------------------------------------------------------------------------
    Desktop
    -------------------------------------------------------------------------- */
 @media (min-width: 900px) {
@@ -991,47 +895,18 @@
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
-  .tabbar {
-    right: auto;
-    bottom: 22px;
-    left: 50%;
-    width: min(520px, calc(100% - 48px));
-    padding: 8px 10px;
-    border: 1px solid rgba(130, 175, 255, 0.16);
-    border-radius: 999px;
-    background: rgba(8, 16, 28, 0.88);
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
-    transform: translateX(-50%);
-  }
-
-  .toast {
-    bottom: 104px;
-    font-size: 12.5px;
-  }
-
   .avatar__menu {
     width: 252px;
   }
 }
 
 /* --------------------------------------------------------------------------
-   Gold tema — tayyor, lekin hozircha yoqilmagan
+   Gold tema — Home'ga xos qismlar
    -------------------------------------------------------------------------- */
 .home[data-theme="gold"] {
-  --h-bg: #fbf3df;
-  --h-text: #241a08;
-  --h-muted: #8b7a58;
-  --h-faint: #a89670;
-  --h-border: rgba(168, 132, 60, 0.24);
-  --h-accent: #a97716;
-  --h-good: #2f8a5b;
-  --h-bad: #c2453f;
-  --h-sheet: #fffaf0;
-
   background:
     radial-gradient(120% 62% at 50% -12%, #fffdf6 0%, rgba(255, 253, 246, 0) 60%),
     linear-gradient(180deg, #fdf7e8 0%, #f8eed7 58%, #fbf3df 100%);
-  color-scheme: light;
 }
 
 .home[data-theme="gold"] .home__glow--one {
@@ -1162,21 +1037,6 @@
   background: linear-gradient(165deg, #ffffff 0%, #fbf3e1 100%);
 }
 
-.home[data-theme="gold"] .tabbar {
-  border-color: rgba(168, 132, 60, 0.2);
-  background: rgba(255, 250, 240, 0.9);
-}
-
-.home[data-theme="gold"] .tabbar__slot::before {
-  border-color: rgba(168, 132, 60, 0.24);
-}
-
-.home[data-theme="gold"] .toast {
-  border-color: rgba(168, 132, 60, 0.24);
-  background: #fffaf0;
-  color: #3a2c11;
-}
-
 .home[data-theme="gold"] .sheet-search {
   background: linear-gradient(180deg, #fffaf0 0%, #fffaf0 68%, rgba(255, 250, 240, 0) 100%);
 }
@@ -1225,21 +1085,9 @@
   }
 }
 
-@keyframes toast-in {
-  from {
-    opacity: 0;
-    transform: translate(-50%, 8px);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .sk,
-  .avatar__menu,
-  .toast {
+  .avatar__menu {
     animation: none;
   }
 

@@ -13,24 +13,52 @@ import { normalizeNickname } from "./validation";
 
 export type Gender = "male" | "female" | "other";
 
+/** Bitta sevimli musiqa haqidagi ma'lumot (fayl IndexedDB'da saqlanadi). */
+export interface SongMeta {
+  name: string;
+  type: string;
+  size: number;
+  /** Soniyalarda. */
+  duration: number;
+}
+
 export interface Account {
   nickname: string;
   firstName: string;
   lastName: string;
   age: number;
   gender: Gender;
+  /** Profil rasmi — 512×512 JPEG data URL. */
+  photo?: string | null;
+  bio?: string;
+  profession?: string;
+  song?: SongMeta | null;
   salt: string;
   hash: string;
   /** Shu qurilmada qayta kirish uchun token. */
   token: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Session {
   nickname: string;
   firstName: string;
+  photo?: string | null;
   token: string;
   expiresAt: number;
+}
+
+/** Profil maydonlari — Settings'dan yangilanadi. */
+export interface ProfilePatch {
+  firstName?: string;
+  lastName?: string;
+  age?: number;
+  gender?: Gender;
+  photo?: string | null;
+  bio?: string;
+  profession?: string;
+  song?: SongMeta | null;
 }
 
 export interface DeviceAccount {
@@ -123,6 +151,7 @@ function startSession(account: Account): Session {
   const session: Session = {
     nickname: account.nickname,
     firstName: account.firstName,
+    photo: account.photo ?? null,
     token: account.token,
     expiresAt: Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000,
   };
@@ -170,7 +199,66 @@ export function getSession(): Session | null {
     return null;
   }
 
+  // Profil boshqa joyda yangilangan bo'lsa — sessiyani ham yangilaymiz.
+  if (session.firstName !== account.firstName || session.photo !== (account.photo ?? null)) {
+    const next: Session = {
+      ...session,
+      firstName: account.firstName,
+      photo: account.photo ?? null,
+    };
+    writeJson(SESSION_KEY, next);
+    return next;
+  }
+
   return session;
+}
+
+/** Settings ekrani uchun to'liq akkount yozuvi. */
+export function getAccount(nickname: string): Account | null {
+  return findAccount(nickname) ?? null;
+}
+
+/**
+ * Profil maydonlarini yangilaydi. Muvaffaqiyatli bo'lsa yangilangan sessiyani
+ * qaytaradi (ism va rasm sarlavhada darhol ko'rinadi).
+ */
+export function updateProfile(nickname: string, patch: ProfilePatch): Session | null {
+  const normalized = normalizeNickname(nickname);
+  const accounts = readAccounts();
+  const index = accounts.findIndex((account) => account.nickname === normalized);
+  if (index < 0) return null;
+
+  const account: Account = {
+    ...accounts[index],
+    ...patch,
+    updatedAt: new Date().toISOString(),
+  };
+
+  accounts[index] = account;
+  writeAccounts(accounts);
+
+  // Qurilma tarixidagi ism ham yangilanadi.
+  const deviceList = readDeviceList();
+  if (deviceList.some((entry) => entry.nickname === normalized)) {
+    writeJson(
+      DEVICE_KEY,
+      deviceList.map((entry) =>
+        entry.nickname === normalized ? { ...entry, firstName: account.firstName } : entry,
+      ),
+    );
+  }
+
+  const session = readJson<Session | null>(SESSION_KEY, null);
+  if (!session || session.nickname !== normalized) return null;
+
+  const next: Session = {
+    ...session,
+    firstName: account.firstName,
+    photo: account.photo ?? null,
+  };
+
+  writeJson(SESSION_KEY, next);
+  return next;
 }
 
 export function logOut(): void {

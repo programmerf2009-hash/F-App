@@ -4,7 +4,7 @@ One app. One ecosystem. Endless possibilities.
 
 **Jonli sayt:** <https://programmerf2009-hash.github.io/F-App/>
 
-Hozirgi holat: **splash → onboarding → kirish/ro'yxatdan o'tish → Home**.
+Hozirgi holat: **splash → onboarding → kirish/ro'yxatdan o'tish → Home → Settings**.
 
 ## Ishga tushirish
 
@@ -33,12 +33,13 @@ ichidagi och rangli joylar saqlanib qoladi.
 
 ```
 src/
-├─ app/            # ekranlar: Splash, Onboarding, Auth, Home + sheet'lar
-├─ components/     # CosmicBackground, LogoMark, Sheet
+├─ app/            # ekranlar: Splash, Onboarding, Auth, Home, Settings + sheet'lar
+├─ components/     # CosmicBackground, LogoMark, Sheet, BottomNav, Toast
 ├─ data/           # onboarding slaydlari, O'zbekiston joylari (GADM)
-├─ lib/            # auth, rates, weather, places, home-prefs, validation
+├─ lib/            # auth, rates, weather, places, home-prefs, theme, image, song-store, validation
 └─ styles/
    ├─ tokens.css   # brend ranglari, radius, easing (light/dark)
+   ├─ surfaces.css # Home va Settings uchun umumiy --h-* tema tokenlari
    └─ globals.css  # reset + asosiy tipografiya
 ```
 
@@ -130,12 +131,12 @@ mo'ljallangan, desktop'da 1120 px konteyner va ikki ustunli tartib ishlatiladi.
 **Bo'sh javonlar** — yangiliklar, do'kon aksiyalari va xizmatlar uchun skelet
 kartalar ko'rsatiladi, ichida hech qanday soxta kontent yo'q.
 
-**Pastki menyu** — 5 slot: Home (ishlaydi), Profile, Settings (hali ekransiz)
-va 2 ta bo'sh joy. Avatar menyusida akkount va `Log out` bor.
+**Pastki menyu** — 5 slot: Home va Settings ishlaydi, Profile va 2 ta bo'sh joy
+keyinroq to'ldiriladi. Avatar menyusida akkount va `Log out` bor.
 
-**Tema** — hozir to'q navy tema faol (`data-theme="dark"`). Gold/cream tema
-`home.css` da `[data-theme="gold"]` ostida tayyor, lekin Sozlamalar ekrani
-paydo bo'lguncha yoqilmaydi.
+**Tema** — Settings'dan tanlanadi: `Midnight` (to'q navy) yoki `Gold`
+(krem/oltin). Tanlov `fapp:theme:v1` da saqlanadi va Home hamda Settings'da
+darhol qo'llanadi.
 
 ### Joylar ma'lumotini yangilash
 
@@ -150,6 +151,34 @@ python scripts/build-places.py path/to/gadm41_UZB_2.json
 
 Natija: `src/data/uzbekistan-places.ts` (14 shahar, 171 tuman).
 
+## Settings
+
+Pastki menyudagi **Settings** — akkountni ko'rish, tahlil qilish va tahrirlash.
+Mobil 390 px, desktop 1120 px ikki ustunli tartib.
+
+**Akkount tahlili** — yuqoridagi kartada rasm, ism, `@nickname`, yosh va jins,
+profil to'liqligi (7 band: rasm, ism, familya, yosh, kasb, musiqa, bio) hamda
+ro'yxatdan o'tgan sana ko'rsatiladi.
+
+**Majburiy maydonlar:** ism, familya, yosh, profil rasmi, kasb va bitta sevimli
+musiqa. **Ixtiyoriy:** bio (160 belgi). Matn maydonlari `Save changes` bilan
+saqlanadi va validatsiyadan o'tadi; rasm va musiqa esa darhol saqlanadi.
+
+- **Rasm** — tanlangan fayl markazdan kvadrat qirqilib, 512×512 JPEG data URL'ga
+  aylantiriladi va akkount yozuvida saqlanadi. Home'dagi avatar shu rasmni
+  ko'rsatadi. Qo'llab-quvvatlanmaydigan format yoki 20 MB'dan katta fayl rad
+  etiladi.
+- **Musiqa** — bitta audio fayl (12 MB gacha). Fayl `localStorage`ga sig'magani
+  uchun IndexedDB'da saqlanadi: `fapp-media` bazasi, `songs` store, kalit —
+  nickname. Akkountda faqat nom, tur, hajm va davomiylik qoladi. Pleyerda
+  play/pause va seek bor; `Replace` almashtiradi, savatcha o'chiradi.
+- **Tema** — `Midnight` yoki `Gold`; tanlov darhol qo'llanadi.
+- **Clear cache** — `fapp:rates:v1` va ob-havo xotira keshini tozalaydi.
+- **Log out** — sessiyani o'chiradi, qurilma tarixi qoladi.
+
+Kalitlar: `fapp:theme:v1` (localStorage), `fapp:accounts:v1` / `fapp:session:v1`
+(profil maydonlari shu yerda), `fapp-media` (IndexedDB).
+
 ## Deploy (GitHub Pages)
 
 `main` branch'ga har push bo'lganda `.github/workflows/deploy.yml` avtomatik ishlaydi:
@@ -162,7 +191,7 @@ Natija: `src/data/uzbekistan-places.ts` (14 shahar, 171 tuman).
 
 ## Keyingi qadamlar
 
-1. Profile va Settings ekranlari (gold temani yoqish shu yerda)
+1. Profile ekrani (Settings ma'lumotlarini ommaviy ko'rinishda)
 2. Yangiliklar va do'kon aksiyalari uchun real manbalar
 3. Qidiruv (header'dagi ikonka)
 4. Supabase sxemasi + RLS

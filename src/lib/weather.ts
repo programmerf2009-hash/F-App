@@ -151,6 +151,11 @@ export function locationPermission(): Promise<PermissionState | null> {
 const MEMORY_TTL = 10 * 60 * 1000;
 const memory = new Map<string, WeatherNow>();
 
+/** Settings → "Clear cache" uchun. */
+export function clearWeatherCache(): void {
+  memory.clear();
+}
+
 function cacheKey(place: Place): string {
   return `${place.lat.toFixed(3)},${place.lon.toFixed(3)}`;
 }

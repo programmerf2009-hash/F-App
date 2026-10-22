@@ -1,0 +1,47 @@
+/* ==========================================================================
+   Umumiy sirt ranglari — Home va Settings ikkalasi ham ishlatadi
+   --------------------------------------------------------------------------
+   Tema ildiz elementdagi [data-theme] atributi orqali almashadi:
+     dark — to'q navy (default)
+     gold — iliq krem / oltin
+   ========================================================================== */
+
+.home,
+.settings {
+  --h-bg: #050b14;
+  --h-text: #f2f6ff;
+  --h-muted: #8ba3c4;
+  --h-faint: #61799a;
+  --h-border: rgba(130, 175, 255, 0.14);
+  --h-accent: #4d9aff;
+  --h-good: #4ade9b;
+  --h-bad: #ff8ba3;
+  --h-sheet: #0a1524;
+  --h-card: rgba(12, 24, 42, 0.72);
+  --h-card-strong: rgba(10, 21, 36, 0.92);
+  --h-chip: rgba(255, 255, 255, 0.05);
+  --h-input: rgba(255, 255, 255, 0.04);
+  --h-accent-soft: rgba(59, 140, 255, 0.16);
+  --h-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+}
+
+.home[data-theme="gold"],
+.settings[data-theme="gold"] {
+  --h-bg: #fbf3df;
+  --h-text: #241a08;
+  --h-muted: #8b7a58;
+  --h-faint: #a89670;
+  --h-border: rgba(168, 132, 60, 0.24);
+  --h-accent: #a97716;
+  --h-good: #2f8a5b;
+  --h-bad: #c2453f;
+  --h-sheet: #fffaf0;
+  --h-card: rgba(255, 250, 240, 0.78);
+  --h-card-strong: #fffaf0;
+  --h-chip: rgba(168, 132, 60, 0.08);
+  --h-input: rgba(168, 132, 60, 0.06);
+  --h-accent-soft: rgba(168, 132, 60, 0.14);
+  --h-shadow: 0 18px 40px rgba(120, 90, 30, 0.16);
+  color-scheme: light;
+}

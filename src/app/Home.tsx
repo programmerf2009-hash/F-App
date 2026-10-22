@@ -1,17 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  ChevronDown,
-  House,
-  LogOut,
-  RotateCcw,
-  Search,
-  Settings2,
-  UserRound,
-} from "lucide-react";
+import { ChevronDown, LogOut, RotateCcw, Search } from "lucide-react";
 import { CurrencySheet } from "./CurrencySheet";
 import { PlaceSheet } from "./PlaceSheet";
 import { WeatherCard } from "./WeatherCard";
+import { BottomNav, type Tab } from "../components/BottomNav";
+import { Toast } from "../components/Toast";
 import type { Session } from "../lib/auth";
+import type { Theme } from "../lib/theme";
 import { loadHomePrefs, saveHomePrefs, type HomePrefs } from "../lib/home-prefs";
 import { DEFAULT_PLACE, type Place } from "../lib/places";
 import {
@@ -40,14 +35,16 @@ const LOGO_SRC = `${import.meta.env.BASE_URL}brand/fapplogo2.png`;
 
 interface Props {
   session: Session;
+  theme: Theme;
   onLogout: () => void;
   onReplay: () => void;
+  onNavigate: (tab: Tab) => void;
 }
 
 type SheetState = null | { type: "slot"; index: number } | { type: "base" } | { type: "place" };
 
 /** Home — kurslar, ob-havo va bo'sh javonlar. */
-export function Home({ session, onLogout, onReplay }: Props) {
+export function Home({ session, theme, onLogout, onReplay, onNavigate }: Props) {
   const [prefs, setPrefs] = useState<HomePrefs>(loadHomePrefs);
 
   const [rates, setRates] = useState<RatesSnapshot | null>(null);
@@ -260,7 +257,7 @@ export function Home({ session, onLogout, onReplay }: Props) {
   const initial = (session.firstName.trim()[0] ?? session.nickname[0] ?? "F").toUpperCase();
 
   return (
-    <div className={`home${sheet ? " is-locked" : ""}`} data-theme="dark">
+    <div className={`home${sheet ? " is-locked" : ""}`} data-theme={theme}>
       <div className="home__glow home__glow--one" aria-hidden="true" />
       <div className="home__glow home__glow--two" aria-hidden="true" />
 
@@ -288,13 +285,25 @@ export function Home({ session, onLogout, onReplay }: Props) {
               aria-label="Account menu"
               aria-expanded={menuOpen}
             >
-              <span className="avatar__initial">{initial}</span>
+              <span className="avatar__initial">
+                {session.photo ? (
+                  <img className="avatar__photo" src={session.photo} alt="" />
+                ) : (
+                  initial
+                )}
+              </span>
             </button>
 
             {menuOpen ? (
               <div className="avatar__menu" role="menu">
                 <div className="avatar__me">
-                  <span className="avatar__big">{initial}</span>
+                  <span className="avatar__big">
+                    {session.photo ? (
+                      <img className="avatar__photo" src={session.photo} alt="" />
+                    ) : (
+                      initial
+                    )}
+                  </span>
                   <div className="avatar__id">
                     <p className="avatar__name">{session.firstName}</p>
                     <p className="avatar__nick">@{session.nickname}</p>
@@ -503,45 +512,9 @@ export function Home({ session, onLogout, onReplay }: Props) {
         </section>
       </main>
 
-      <nav className="tabbar" aria-label="Main navigation">
-        <button type="button" className="tabbar__item is-active" aria-current="page">
-          <span className="tabbar__icon">
-            <House size={21} strokeWidth={2} />
-          </span>
-          <span className="tabbar__label">Home</span>
-        </button>
+      <BottomNav active="home" onNavigate={onNavigate} onSoon={showToast} />
 
-        <button
-          type="button"
-          className="tabbar__item"
-          onClick={() => showToast("Profile is coming soon")}
-        >
-          <span className="tabbar__icon">
-            <UserRound size={21} strokeWidth={2} />
-          </span>
-          <span className="tabbar__label">Profile</span>
-        </button>
-
-        <button
-          type="button"
-          className="tabbar__item"
-          onClick={() => showToast("Settings is coming soon")}
-        >
-          <span className="tabbar__icon">
-            <Settings2 size={21} strokeWidth={2} />
-          </span>
-          <span className="tabbar__label">Settings</span>
-        </button>
-
-        <span className="tabbar__slot" aria-hidden="true" />
-        <span className="tabbar__slot" aria-hidden="true" />
-      </nav>
-
-      {toast ? (
-        <div className="toast" role="status">
-          {toast}
-        </div>
-      ) : null}
+      <Toast message={toast} />
 
       {sheet?.type === "slot" ? (
         <CurrencySheet

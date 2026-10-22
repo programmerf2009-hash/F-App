@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { AuthScreen } from "./app/AuthScreen";
 import { Home } from "./app/Home";
 import { Onboarding } from "./app/Onboarding";
+import { Settings } from "./app/Settings";
 import { SplashScreen } from "./app/SplashScreen";
 import { getSession, logOut, type Session } from "./lib/auth";
 import { isOnboardingDone, markOnboardingDone, resetOnboarding } from "./lib/onboarding-storage";
+import { loadTheme, saveTheme, type Theme } from "./lib/theme";
+import type { Tab } from "./components/BottomNav";
 
 /** Kirish ekrani qancha turadi (ms). */
 const SPLASH_DURATION = 3000;
@@ -23,6 +26,8 @@ export default function App() {
   const [startIndex] = useState(onboardingStartIndex);
   const [session, setSession] = useState<Session | null>(() => getSession());
   const [phase, setPhase] = useState<Phase>(startIndex === null ? "splash" : "onboarding");
+  const [tab, setTab] = useState<Tab>("home");
+  const [theme, setTheme] = useState<Theme>(loadTheme);
 
   useEffect(() => {
     if (phase !== "splash") return;
@@ -45,13 +50,20 @@ export default function App() {
 
   const handleAuthenticated = (next: Session) => {
     setSession(next);
+    setTab("home");
     setPhase("app");
   };
 
   const handleLogOut = () => {
     logOut();
     setSession(null);
+    setTab("home");
     setPhase("auth");
+  };
+
+  const handleThemeChange = (next: Theme) => {
+    saveTheme(next);
+    setTheme(next);
   };
 
   const replayOnboarding = () => {
@@ -66,7 +78,28 @@ export default function App() {
   }
 
   if (phase === "app" && session) {
-    return <Home session={session} onLogout={handleLogOut} onReplay={replayOnboarding} />;
+    if (tab === "settings") {
+      return (
+        <Settings
+          session={session}
+          theme={theme}
+          onThemeChange={handleThemeChange}
+          onSessionChange={setSession}
+          onLogout={handleLogOut}
+          onNavigate={setTab}
+        />
+      );
+    }
+
+    return (
+      <Home
+        session={session}
+        theme={theme}
+        onLogout={handleLogOut}
+        onReplay={replayOnboarding}
+        onNavigate={setTab}
+      />
+    );
   }
 
   return <AuthScreen onAuthenticated={handleAuthenticated} />;

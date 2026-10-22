@@ -108,6 +108,15 @@ export function isFresh(snapshot: RatesSnapshot): boolean {
   return Date.now() - snapshot.fetchedAt < CACHE_TTL;
 }
 
+/** Settings → "Clear cache" uchun. */
+export function clearRatesCache(): void {
+  try {
+    window.localStorage.removeItem(CACHE_KEY);
+  } catch {
+    /* jim o'tamiz */
+  }
+}
+
 /* --------------------------------------------------------------------------
    Yuklash
    -------------------------------------------------------------------------- */
