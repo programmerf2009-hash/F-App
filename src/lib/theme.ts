@@ -1,10 +1,10 @@
 /* ==========================================================================
-   Tema — Settings'dan tanlanadi, Home va Settings'da qo'llanadi
+   Tema — Settings'dan tanlanadi. Yangi qurilmada Gold (light) standart.
    ========================================================================== */
 
 export type Theme = "dark" | "gold";
 
-export const DEFAULT_THEME: Theme = "dark";
+export const DEFAULT_THEME: Theme = "gold";
 
 const THEME_KEY = "fapp:theme:v1";
 
