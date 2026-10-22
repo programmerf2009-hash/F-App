@@ -4,7 +4,7 @@ One app. One ecosystem. Endless possibilities.
 
 **Jonli sayt:** <https://programmerf2009-hash.github.io/F-App/>
 
-Hozirgi holat: **kirish (splash) ekrani + 3 qadamli onboarding**.
+Hozirgi holat: **splash → onboarding → kirish/ro'yxatdan o'tish → Home (vaqtinchalik)**.
 
 ## Ishga tushirish
 
@@ -33,10 +33,10 @@ ichidagi och rangli joylar saqlanib qoladi.
 
 ```
 src/
-├─ app/            # ekranlar: SplashScreen, Onboarding, HomePlaceholder
+├─ app/            # ekranlar: Splash, Onboarding, Auth, HomePlaceholder
 ├─ components/     # CosmicBackground, LogoMark
 ├─ data/           # onboarding slaydlari matni
-├─ lib/            # localStorage yordamchilari
+├─ lib/            # auth, validation, localStorage yordamchilari
 └─ styles/
    ├─ tokens.css   # brend ranglari, radius, easing (light/dark)
    └─ globals.css  # reset + asosiy tipografiya
@@ -80,6 +80,30 @@ Qayta ko'rish uchun: `?onboarding=1` (yoki `?onboarding=2`, `?onboarding=3`).
 
 Holat `localStorage`da saqlanadi: `fapp:onboarding:v1 = "done"`.
 O'chirilsa, tanishuv yana bir marta ko'rinadi.
+
+## Kirish va akkount
+
+Ikki ekran: **Log In** (nickname + parol) va **Sign Up** (ism, familya, yosh,
+jins, nickname, parol). Google, Facebook, pochta va mehmon (guest) rejimi yo'q.
+
+**Nickname qoidasi:** faqat kichik harflar, raqamlar, `.` va `_`; kamida 2 harf,
+kamida 2 raqam, kamida bitta `.` yoki `_`; 5–24 belgi; takrorlanmaydi.
+
+**Parol:** kamida 8 belgi, murakkablik talabi yo'q.
+
+**Qurilma tarixi:** muvaffaqiyatli kirgandan keyin akkount shu qurilmada
+eslab qolinadi (ko'pi bilan 3 ta). Login ekranidagi konvert ikonkasi bosilsa
+ro'yxat ochiladi; akkount tanlanganda nickname va parol maydonlari to'ladi,
+parolni ko'rish (ko'z) o'chadi va kirish token bilan bajariladi.
+
+Sessiya 30 kun saqlanadi — qayta kirishda splash'dan so'ng to'g'ridan-to'g'ri
+ilova ochiladi. Chiqish (Log out) faqat sessiyani o'chiradi, qurilma tarixi qoladi.
+
+**Hozircha** akkountlar shu qurilmada saqlanadi (`localStorage`), parol
+`salt` + SHA-256 bilan hashlanadi. Supabase ulanganda faqat `src/lib/auth.ts`
+ichidagi funksiyalar almashtiriladi — ekranlar o'zgarmaydi.
+
+Kalitlar: `fapp:accounts:v1`, `fapp:device:v1`, `fapp:session:v1`.
 
 ## Deploy (GitHub Pages)
 
