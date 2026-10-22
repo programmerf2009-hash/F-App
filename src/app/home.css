@@ -91,8 +91,9 @@
 }
 
 .home__logo {
-  width: 29px;
-  height: auto;
+  width: 31px;
+  height: 31px;
+  object-fit: contain;
   filter: drop-shadow(0 6px 16px rgba(46, 116, 255, 0.36));
   user-select: none;
   -webkit-user-drag: none;
@@ -831,31 +832,6 @@
 }
 
 /* --------------------------------------------------------------------------
-   Xizmatlar (17 ta bo'sh slot)
-   -------------------------------------------------------------------------- */
-.services {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.service {
-  display: grid;
-  place-items: center;
-  aspect-ratio: 1 / 0.92;
-  border: 1px dashed rgba(130, 175, 255, 0.17);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.018);
-}
-
-.service__dot {
-  width: 22px;
-  height: 22px;
-  border: 1px dashed rgba(130, 175, 255, 0.22);
-  border-radius: 50%;
-}
-
-/* --------------------------------------------------------------------------
    Pastki menyu
    -------------------------------------------------------------------------- */
 .tabbar {
@@ -1009,10 +985,6 @@
     margin: 0;
     padding: 2px 2px 4px;
     overflow: visible;
-  }
-
-  .services {
-    grid-template-columns: repeat(8, minmax(0, 1fr));
   }
 
   .shelf--products {
@@ -1188,15 +1160,6 @@
 
 .home[data-theme="gold"] .shelf__card {
   background: linear-gradient(165deg, #ffffff 0%, #fbf3e1 100%);
-}
-
-.home[data-theme="gold"] .service {
-  border-color: rgba(168, 132, 60, 0.22);
-  background: rgba(255, 255, 255, 0.5);
-}
-
-.home[data-theme="gold"] .service__dot {
-  border-color: rgba(168, 132, 60, 0.26);
 }
 
 .home[data-theme="gold"] .tabbar {

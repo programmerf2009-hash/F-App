@@ -127,9 +127,8 @@ mo'ljallangan, desktop'da 1120 px konteyner va ikki ustunli tartib ishlatiladi.
   tanlash — 14 shahar + **171 tuman** (barcha viloyatlar)
 - tanlov va kurs sozlamalari: `fapp:home:v1`; kurs keshi: `fapp:rates:v1`
 
-**Bo'sh javonlar** — yangiliklar va do'kon aksiyalari uchun skelet kartalar
-ko'rsatiladi, ichida hech qanday soxta kontent yo'q. Xizmatlar uchun 17 ta
-bo'sh slot ajratilgan.
+**Bo'sh javonlar** — yangiliklar, do'kon aksiyalari va xizmatlar uchun skelet
+kartalar ko'rsatiladi, ichida hech qanday soxta kontent yo'q.
 
 **Pastki menyu** — 5 slot: Home (ishlaydi), Profile, Settings (hali ekransiz)
 va 2 ta bo'sh joy. Avatar menyusida akkount va `Log out` bor.

@@ -8,7 +8,6 @@ import {
   Settings2,
   UserRound,
 } from "lucide-react";
-import { LogoMark } from "../components/LogoMark";
 import { CurrencySheet } from "./CurrencySheet";
 import { PlaceSheet } from "./PlaceSheet";
 import { WeatherCard } from "./WeatherCard";
@@ -36,6 +35,8 @@ import {
   type WeatherNow,
 } from "../lib/weather";
 import "./home.css";
+
+const LOGO_SRC = `${import.meta.env.BASE_URL}brand/fapplogo2.png`;
 
 interface Props {
   session: Session;
@@ -265,7 +266,7 @@ export function Home({ session, onLogout, onReplay }: Props) {
 
       <header className="home__header">
         <div className="home__brand">
-          <LogoMark className="home__logo" />
+          <img className="home__logo" src={LOGO_SRC} alt="" aria-hidden="true" draggable={false} />
           <span className="home__wordmark">F App</span>
         </div>
 
@@ -487,13 +488,15 @@ export function Home({ session, onLogout, onReplay }: Props) {
             <h2 className="sec__title" id="services-title">
               Services
             </h2>
-            <span className="sec__chip">17 slots</span>
+            <span className="sec__chip">Soon</span>
           </div>
 
-          <div className="services" aria-hidden="true">
-            {Array.from({ length: 17 }, (_, index) => (
-              <div className="service" key={index}>
-                <span className="service__dot" />
+          <div className="shelf" aria-hidden="true">
+            {[0, 1, 2, 3].map((index) => (
+              <div className="shelf__card" key={index}>
+                <span className="sk sk--media" />
+                <span className="sk sk--line" />
+                <span className="sk sk--line sk--short" />
               </div>
             ))}
           </div>
