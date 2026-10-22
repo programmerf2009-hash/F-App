@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AuthScreen } from "./app/AuthScreen";
-import { HomePlaceholder } from "./app/HomePlaceholder";
+import { Home } from "./app/Home";
 import { Onboarding } from "./app/Onboarding";
 import { SplashScreen } from "./app/SplashScreen";
 import { getSession, logOut, type Session } from "./lib/auth";
@@ -66,7 +66,7 @@ export default function App() {
   }
 
   if (phase === "app" && session) {
-    return <HomePlaceholder session={session} onLogout={handleLogOut} onReplay={replayOnboarding} />;
+    return <Home session={session} onLogout={handleLogOut} onReplay={replayOnboarding} />;
   }
 
   return <AuthScreen onAuthenticated={handleAuthenticated} />;

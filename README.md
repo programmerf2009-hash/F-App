@@ -4,7 +4,7 @@ One app. One ecosystem. Endless possibilities.
 
 **Jonli sayt:** <https://programmerf2009-hash.github.io/F-App/>
 
-Hozirgi holat: **splash → onboarding → kirish/ro'yxatdan o'tish → Home (vaqtinchalik)**.
+Hozirgi holat: **splash → onboarding → kirish/ro'yxatdan o'tish → Home**.
 
 ## Ishga tushirish
 
@@ -33,10 +33,10 @@ ichidagi och rangli joylar saqlanib qoladi.
 
 ```
 src/
-├─ app/            # ekranlar: Splash, Onboarding, Auth, HomePlaceholder
-├─ components/     # CosmicBackground, LogoMark
-├─ data/           # onboarding slaydlari matni
-├─ lib/            # auth, validation, localStorage yordamchilari
+├─ app/            # ekranlar: Splash, Onboarding, Auth, Home + sheet'lar
+├─ components/     # CosmicBackground, LogoMark, Sheet
+├─ data/           # onboarding slaydlari, O'zbekiston joylari (GADM)
+├─ lib/            # auth, rates, weather, places, home-prefs, validation
 └─ styles/
    ├─ tokens.css   # brend ranglari, radius, easing (light/dark)
    └─ globals.css  # reset + asosiy tipografiya
@@ -105,6 +105,52 @@ ichidagi funksiyalar almashtiriladi — ekranlar o'zgarmaydi.
 
 Kalitlar: `fapp:accounts:v1`, `fapp:device:v1`, `fapp:session:v1`.
 
+## Home
+
+Kirgandan keyin ochiladigan asosiy ekran. Mobil dizayn 390 px kenglikka
+mo'ljallangan, desktop'da 1120 px konteyner va ikki ustunli tartib ishlatiladi.
+
+**Valyuta kurslari** — O'zbekiston Markaziy banki (CBU) kunlik kurslari:
+
+- manba: `https://cbu.uz/uz/arkhiv-kursov-valyut/json/` (CORS ochiq)
+- 3 ta karta: standart holda `USD`, `EUR`, `RUB`; har biri so'mdagi qiymatni
+  va kunlik o'zgarishni (%) ko'rsatadi
+- kartani bosib istalgan CBU valyutasiga almashtirish mumkin (75 ta valyuta)
+- `in UZS` tugmasi bazani o'zgartiradi — uchala karta yangi bazada ko'rinadi;
+  baza bilan karta ustma-ust tushsa, o'rinlar avtomatik almashadi
+- javob 30 daqiqa `localStorage`da keshlanadi, keyin fonda yangilanadi
+
+**Ob-havo** — Open-Meteo (`api.open-meteo.com`, API kalitsiz):
+
+- joriy harorat, his qilinishi, H/L, namlik, shamol; WMO kodi bo'yicha ikonka
+- joylashuv: qurilma geolokatsiyasi (ruxsat berilgan bo'lsa) yoki ro'yxatdan
+  tanlash — 14 shahar + **171 tuman** (barcha viloyatlar)
+- tanlov va kurs sozlamalari: `fapp:home:v1`; kurs keshi: `fapp:rates:v1`
+
+**Bo'sh javonlar** — yangiliklar va do'kon aksiyalari uchun skelet kartalar
+ko'rsatiladi, ichida hech qanday soxta kontent yo'q. Xizmatlar uchun 17 ta
+bo'sh slot ajratilgan.
+
+**Pastki menyu** — 5 slot: Home (ishlaydi), Profile, Settings (hali ekransiz)
+va 2 ta bo'sh joy. Avatar menyusida akkount va `Log out` bor.
+
+**Tema** — hozir to'q navy tema faol (`data-theme="dark"`). Gold/cream tema
+`home.css` da `[data-theme="gold"]` ostida tayyor, lekin Sozlamalar ekrani
+paydo bo'lguncha yoqilmaydi.
+
+### Joylar ma'lumotini yangilash
+
+Tuman ro'yxati GADM 4.1 chegaralaridan yasaladi (Toshkent shahrining 11 ta
+tumani GADM'da alohida yo'q — skriptda qo'lda qo'shilgan):
+
+```bash
+# gadm41_UZB_2.json yuklab olinadi:
+# https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_UZB_2.json
+python scripts/build-places.py path/to/gadm41_UZB_2.json
+```
+
+Natija: `src/data/uzbekistan-places.ts` (14 shahar, 171 tuman).
+
 ## Deploy (GitHub Pages)
 
 `main` branch'ga har push bo'lganda `.github/workflows/deploy.yml` avtomatik ishlaydi:
@@ -117,6 +163,7 @@ Kalitlar: `fapp:accounts:v1`, `fapp:device:v1`, `fapp:session:v1`.
 
 ## Keyingi qadamlar
 
-1. Supabase sxemasi + RLS
-2. Design system komponentlari
-3. App shell: Home · Discover · AI · Activity · Profile
+1. Profile va Settings ekranlari (gold temani yoqish shu yerda)
+2. Yangiliklar va do'kon aksiyalari uchun real manbalar
+3. Qidiruv (header'dagi ikonka)
+4. Supabase sxemasi + RLS
