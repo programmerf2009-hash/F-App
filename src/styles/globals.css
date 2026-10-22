@@ -10,6 +10,26 @@ body,
   height: 100%;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html,
+body {
+  /* Scroll ishlaydi, lekin pinch-zoom va double-tap zoom bloklanadi. */
+  touch-action: pan-x pan-y;
+}
+
+/* iOS formaga bosganda avtomatik yaqinlashtirmasligi uchun 16px. */
+@media (max-width: 899px), (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 body {
   margin: 0;
   background: var(--bg);
