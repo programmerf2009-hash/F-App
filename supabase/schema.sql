@@ -496,25 +496,20 @@ $$;
 -- 3. Grants
 -- ----------------------------------------------------------------------------
 
-revoke all on public.profiles from anon;
-revoke insert, delete on public.profiles from authenticated;
-revoke update on public.profiles from authenticated;
+revoke all on public.profiles from anon, authenticated;
 grant select on public.profiles to authenticated;
 grant update (
   first_name, last_name, age, gender, avatar_path, bio, profession,
   song_path, song_name, song_type, song_size, song_duration, updated_at
 ) on public.profiles to authenticated;
 
-revoke all on public.friendships from anon;
-revoke insert, update on public.friendships from authenticated;
+revoke all on public.friendships from anon, authenticated;
 grant select, delete on public.friendships to authenticated;
 
-revoke all on public.posts from anon;
-revoke update on public.posts from authenticated;
+revoke all on public.posts from anon, authenticated;
 grant select, insert, delete on public.posts to authenticated;
 
-revoke all on public.stories from anon;
-revoke update on public.stories from authenticated;
+revoke all on public.stories from anon, authenticated;
 grant select, insert, delete on public.stories to authenticated;
 
 revoke execute on function public.search_profiles(text) from public, anon;
