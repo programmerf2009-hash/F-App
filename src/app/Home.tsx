@@ -271,8 +271,8 @@ export function Home({ session, theme, onLogout, onReplay, onNavigate }: Props) 
           <button
             type="button"
             className="icon-btn"
-            onClick={() => showToast("Search is coming soon")}
-            aria-label="Search (coming soon)"
+            onClick={() => onNavigate("search")}
+            aria-label="Search"
           >
             <Search size={19} strokeWidth={2.1} />
           </button>
@@ -512,7 +512,7 @@ export function Home({ session, theme, onLogout, onReplay, onNavigate }: Props) 
         </section>
       </main>
 
-      <BottomNav active="home" onNavigate={onNavigate} onSoon={showToast} />
+      <BottomNav active="home" onNavigate={onNavigate} />
 
       <Toast message={toast} />
 

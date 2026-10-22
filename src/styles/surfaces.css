@@ -7,7 +7,9 @@
    ========================================================================== */
 
 .home,
-.settings {
+.settings,
+.profile,
+.search {
   --h-bg: #050b14;
   --h-text: #f2f6ff;
   --h-muted: #8ba3c4;
@@ -27,7 +29,9 @@
 }
 
 .home[data-theme="gold"],
-.settings[data-theme="gold"] {
+.settings[data-theme="gold"],
+.profile[data-theme="gold"],
+.search[data-theme="gold"] {
   --h-bg: #fbf3df;
   --h-text: #241a08;
   --h-muted: #8b7a58;

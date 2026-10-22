@@ -1,11 +1,15 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AuthScreen } from "./app/AuthScreen";
 import { Home } from "./app/Home";
 import { Onboarding } from "./app/Onboarding";
+import { Profile } from "./app/Profile";
+import { SearchPage } from "./app/Search";
 import { Settings } from "./app/Settings";
 import { SplashScreen } from "./app/SplashScreen";
 import { getSession, logOut, type Session } from "./lib/auth";
 import { isOnboardingDone, markOnboardingDone, resetOnboarding } from "./lib/onboarding-storage";
+import { setPendingCount } from "./lib/pending";
+import { getPendingCount, subscribeFriendships } from "./lib/social";
 import { loadTheme, saveTheme, type Theme } from "./lib/theme";
 import type { Tab } from "./components/BottomNav";
 
@@ -24,41 +28,101 @@ function onboardingStartIndex(): number | null {
 
 export default function App() {
   const [startIndex] = useState(onboardingStartIndex);
-  const [session, setSession] = useState<Session | null>(() => getSession());
+  const [session, setSession] = useState<Session | null>(null);
   const [phase, setPhase] = useState<Phase>(startIndex === null ? "splash" : "onboarding");
   const [tab, setTab] = useState<Tab>("home");
+  const [profileTarget, setProfileTarget] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>(loadTheme);
 
+  const restore = useCallback(async () => {
+    const next = await getSession().catch(() => null);
+    setSession(next);
+    setPhase(next ? "app" : "auth");
+  }, []);
+
+  /* Splash davomida sessiyani tiklaymiz (tarmoq sekin bo'lsa ham kutamiz). */
   useEffect(() => {
     if (phase !== "splash") return;
 
-    const timer = window.setTimeout(() => {
-      if (!isOnboardingDone()) {
-        setPhase("onboarding");
-        return;
-      }
-      setPhase(getSession() ? "app" : "auth");
-    }, SPLASH_DURATION);
+    let cancelled = false;
+    const timer = new Promise<void>((resolve) => {
+      window.setTimeout(resolve, SPLASH_DURATION);
+    });
 
-    return () => window.clearTimeout(timer);
+    if (!isOnboardingDone()) {
+      void timer.then(() => {
+        if (!cancelled) setPhase("onboarding");
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void Promise.all([timer, getSession().catch(() => null)]).then(([, next]) => {
+      if (cancelled) return;
+      setSession(next);
+      setPhase(next ? "app" : "auth");
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [phase]);
+
+  /* Profil badge'i — kiruvchi so'rovlar soni, realtime bilan. */
+  useEffect(() => {
+    if (!session) return;
+
+    let active = true;
+
+    const refresh = async () => {
+      try {
+        const count = await getPendingCount();
+        if (active) setPendingCount(count);
+      } catch {
+        /* badge — best effort */
+      }
+    };
+
+    void refresh();
+    const unsubscribe = subscribeFriendships(() => {
+      void refresh();
+    });
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", refresh);
+
+    return () => {
+      active = false;
+      unsubscribe();
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", refresh);
+      setPendingCount(0);
+    };
+  }, [session?.id]);
 
   const finishOnboarding = () => {
     markOnboardingDone();
-    setPhase(getSession() ? "app" : "auth");
+    void restore();
   };
 
   const handleAuthenticated = (next: Session) => {
     setSession(next);
     setTab("home");
+    setProfileTarget(null);
     setPhase("app");
   };
 
   const handleLogOut = () => {
-    logOut();
+    void logOut();
     setSession(null);
     setTab("home");
+    setProfileTarget(null);
     setPhase("auth");
+    setPendingCount(0);
   };
 
   const handleThemeChange = (next: Theme) => {
@@ -70,6 +134,16 @@ export default function App() {
     resetOnboarding();
     setPhase("onboarding");
   };
+
+  const navigate = useCallback((next: Tab) => {
+    if (next === "profile") setProfileTarget(null);
+    setTab(next);
+  }, []);
+
+  const openProfile = useCallback((nickname: string) => {
+    setProfileTarget(nickname);
+    setTab("profile");
+  }, []);
 
   if (phase === "splash") return <SplashScreen />;
 
@@ -86,9 +160,26 @@ export default function App() {
           onThemeChange={handleThemeChange}
           onSessionChange={setSession}
           onLogout={handleLogOut}
-          onNavigate={setTab}
+          onNavigate={navigate}
         />
       );
+    }
+
+    if (tab === "profile") {
+      return (
+        <Profile
+          session={session}
+          theme={theme}
+          target={profileTarget}
+          onOpenProfile={openProfile}
+          onCloseTarget={() => setProfileTarget(null)}
+          onNavigate={navigate}
+        />
+      );
+    }
+
+    if (tab === "search") {
+      return <SearchPage theme={theme} onNavigate={navigate} />;
     }
 
     return (
@@ -97,7 +188,7 @@ export default function App() {
         theme={theme}
         onLogout={handleLogOut}
         onReplay={replayOnboarding}
-        onNavigate={setTab}
+        onNavigate={navigate}
       />
     );
   }

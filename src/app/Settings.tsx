@@ -15,24 +15,17 @@ import {
 import { BottomNav, type Tab } from "../components/BottomNav";
 import { Toast } from "../components/Toast";
 import {
-  getAccount,
+  getSongSignedUrl,
+  removeFavoriteSong,
   updateProfile,
-  type Account,
+  uploadAvatar,
+  uploadSong,
   type Gender,
   type Session,
   type SongMeta,
 } from "../lib/auth";
-import { fileToAvatar } from "../lib/image";
 import { clearRatesCache } from "../lib/rates";
-import {
-  MAX_SONG_BYTES,
-  formatBytes,
-  formatDuration,
-  loadSong,
-  readAudioDuration,
-  removeSong as deleteStoredSong,
-  saveSong,
-} from "../lib/song-store";
+import { MAX_SONG_BYTES, formatBytes, formatDuration } from "../lib/song-store";
 import type { Theme } from "../lib/theme";
 import { validateAge, validateName } from "../lib/validation";
 import { clearWeatherCache } from "../lib/weather";
@@ -73,14 +66,14 @@ interface FormState {
 type FieldKey = "firstName" | "lastName" | "age" | "profession" | "photo" | "song";
 type FieldErrors = Partial<Record<FieldKey, string>>;
 
-function formFrom(account: Account | null, session: Session): FormState {
+function formFrom(session: Session): FormState {
   return {
-    firstName: account?.firstName ?? session.firstName,
-    lastName: account?.lastName ?? "",
-    age: account ? String(account.age) : "",
-    gender: account?.gender ?? "male",
-    bio: account?.bio ?? "",
-    profession: account?.profession ?? "",
+    firstName: session.firstName,
+    lastName: session.lastName,
+    age: String(session.age),
+    gender: session.gender,
+    bio: session.bio,
+    profession: session.profession,
   };
 }
 
@@ -88,9 +81,8 @@ function genderLabel(value: Gender): string {
   return GENDERS.find((item) => item.value === value)?.label ?? "—";
 }
 
-function memberSince(account: Account | null): string {
-  if (!account?.createdAt) return "—";
-  const date = new Date(account.createdAt);
+function memberSince(session: Session): string {
+  const date = new Date(session.createdAt);
   if (Number.isNaN(date.getTime())) return "—";
   return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
@@ -103,14 +95,14 @@ export function Settings({
   onLogout,
   onNavigate,
 }: Props) {
-  const [account] = useState(() => getAccount(session.nickname));
-  const [form, setForm] = useState<FormState>(() => formFrom(account, session));
-  const [baseline, setBaseline] = useState<FormState>(() => formFrom(account, session));
+  const [form, setForm] = useState<FormState>(() => formFrom(session));
+  const [baseline, setBaseline] = useState<FormState>(() => formFrom(session));
+  const [saving, setSaving] = useState(false);
 
-  const [photo, setPhoto] = useState<string | null>(account?.photo ?? null);
+  const [photo, setPhoto] = useState<string | null>(session.photo);
   const [photoBusy, setPhotoBusy] = useState(false);
 
-  const [song, setSong] = useState<SongMeta | null>(account?.song ?? null);
+  const [song, setSong] = useState<SongMeta | null>(session.song);
   const [songUrl, setSongUrl] = useState<string | null>(null);
   const [songBusy, setSongBusy] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -134,36 +126,42 @@ export function Settings({
   useEffect(() => {
     return () => {
       if (toastTimer.current) window.clearTimeout(toastTimer.current);
-      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+      if (urlRef.current?.startsWith("blob:")) URL.revokeObjectURL(urlRef.current);
     };
   }, []);
 
   const applyAudioUrl = useCallback((url: string | null) => {
-    if (urlRef.current && urlRef.current !== url) URL.revokeObjectURL(urlRef.current);
+    if (urlRef.current && urlRef.current !== url && urlRef.current.startsWith("blob:")) {
+      URL.revokeObjectURL(urlRef.current);
+    }
     urlRef.current = url;
     setSongUrl(url);
     setPlaying(false);
     setProgress(0);
   }, []);
 
-  /* Saqlangan musiqa faylini IndexedDB'dan yuklaymiz. */
+  /* Supabase Storage'dan imzolangan havolani olamiz. */
   useEffect(() => {
-    if (!account?.song) return;
+    if (!song) {
+      applyAudioUrl(null);
+      return;
+    }
 
     let cancelled = false;
-    loadSong(session.nickname)
-      .then((blob) => {
-        if (!blob || cancelled) return;
-        applyAudioUrl(URL.createObjectURL(blob));
+    applyAudioUrl(null);
+
+    getSongSignedUrl(song.path)
+      .then((url) => {
+        if (!cancelled) applyAudioUrl(url);
       })
       .catch(() => {
-        /* fayl topilmasa — pleyer ko'rsatilmaydi */
+        if (!cancelled) showToast("Could not load the song.");
       });
 
     return () => {
       cancelled = true;
     };
-  }, [account?.song, applyAudioUrl, session.nickname]);
+  }, [song, applyAudioUrl, showToast]);
 
   /* ------------------------------------------------------------- rasm */
 
@@ -174,11 +172,10 @@ export function Settings({
 
     setPhotoBusy(true);
     try {
-      const avatar = await fileToAvatar(file);
-      const next = updateProfile(session.nickname, { photo: avatar });
-      if (!next) throw new Error("Could not save the photo.");
+      const next = await uploadAvatar(file);
+      if (!next.photo) throw new Error("Could not save the photo.");
 
-      setPhoto(avatar);
+      setPhoto(next.photo);
       setErrors((previous) => ({ ...previous, photo: undefined }));
       onSessionChange(next);
       showToast("Profile photo updated");
@@ -207,29 +204,16 @@ export function Settings({
 
     setSongBusy(true);
     try {
-      await saveSong(session.nickname, file);
-      const url = URL.createObjectURL(file);
-      const duration = await readAudioDuration(url);
-      const name = file.name.replace(/\.[^.]+$/, "").trim().slice(0, 80) || "Favorite song";
-
-      const meta: SongMeta = {
-        name,
-        type: file.type,
-        size: file.size,
-        duration,
-      };
-
-      const next = updateProfile(session.nickname, { song: meta });
-      if (!next) throw new Error("Could not save the song.");
+      const next = await uploadSong(file);
+      if (!next.song) throw new Error("Could not save the song.");
 
       audioRef.current?.pause();
-      applyAudioUrl(url);
-      setSong(meta);
+      setSong(next.song);
       setErrors((previous) => ({ ...previous, song: undefined }));
       onSessionChange(next);
       showToast("Favorite song saved");
-    } catch {
-      showToast("Could not save this audio file.");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not save this audio file.");
     } finally {
       setSongBusy(false);
     }
@@ -256,16 +240,15 @@ export function Settings({
   const handleRemoveSong = async () => {
     setSongBusy(true);
     try {
-      await deleteStoredSong(session.nickname);
-      const next = updateProfile(session.nickname, { song: null });
-      if (next) onSessionChange(next);
+      const next = await removeFavoriteSong();
+      onSessionChange(next);
 
       audioRef.current?.pause();
       applyAudioUrl(null);
       setSong(null);
       showToast("Favorite song removed");
-    } catch {
-      showToast("Could not remove the song.");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not remove the song.");
     } finally {
       setSongBusy(false);
     }
@@ -278,7 +261,7 @@ export function Settings({
 
   /* ------------------------------------------------------------ saqlash */
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const firstName = form.firstName.trim();
     const lastName = form.lastName.trim();
     const profession = form.profession.trim();
@@ -309,25 +292,27 @@ export function Settings({
       return;
     }
 
-    const next = updateProfile(session.nickname, {
-      firstName,
-      lastName,
-      age: Number(form.age),
-      gender: form.gender,
-      bio,
-      profession,
-    });
+    setSaving(true);
+    try {
+      const next = await updateProfile({
+        firstName,
+        lastName,
+        age: Number(form.age),
+        gender: form.gender,
+        bio,
+        profession,
+      });
 
-    if (!next) {
-      showToast("Could not save changes");
-      return;
+      const saved: FormState = { ...form, firstName, lastName, bio, profession };
+      setForm(saved);
+      setBaseline(saved);
+      onSessionChange(next);
+      showToast("Changes saved");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not save changes");
+    } finally {
+      setSaving(false);
     }
-
-    const saved: FormState = { ...form, firstName, lastName, bio, profession };
-    setForm(saved);
-    setBaseline(saved);
-    onSessionChange(next);
-    showToast("Changes saved");
   };
 
   /* -------------------------------------------------------------- kesh */
@@ -460,7 +445,7 @@ export function Settings({
 
           <div className="me__foot">
             <span>Member since</span>
-            <strong>{memberSince(account)}</strong>
+            <strong>{memberSince(session)}</strong>
           </div>
         </section>
 
@@ -656,15 +641,15 @@ export function Settings({
 
           <div className="panel__foot">
             <p className={`panel__note${dirty ? " is-dirty" : ""}`}>
-              {dirty ? "Unsaved changes" : "All changes saved"}
+              {saving ? "Saving…" : dirty ? "Unsaved changes" : "All changes saved"}
             </p>
             <button
               type="button"
               className="btn btn--primary"
-              onClick={handleSave}
-              disabled={!dirty}
+              onClick={() => void handleSave()}
+              disabled={!dirty || saving}
             >
-              Save changes
+              {saving ? "Saving…" : "Save changes"}
             </button>
           </div>
         </section>
@@ -773,7 +758,7 @@ export function Settings({
       />
       <input ref={songInput} type="file" accept="audio/*" onChange={handleSong} hidden />
 
-      <BottomNav active="settings" onNavigate={onNavigate} onSoon={showToast} />
+      <BottomNav active="settings" onNavigate={onNavigate} />
       <Toast message={toast} />
     </div>
   );

@@ -1,22 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, AtSign, Cake, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { ArrowLeft, AtSign, Cake, Eye, EyeOff, Lock, User } from "lucide-react";
 import { CosmicBackground } from "../components/CosmicBackground";
-import {
-  listDeviceAccounts,
-  logIn,
-  logInWithDevice,
-  signUp,
-  type DeviceAccount,
-  type Gender,
-  type Session,
-} from "../lib/auth";
+import { logIn, signUp, type Gender, type Session } from "../lib/auth";
 import { validateAge, validateName, validateNickname, validatePassword } from "../lib/validation";
 import "./auth.css";
 
 const LOGO_SRC = `${import.meta.env.BASE_URL}brand/fapplogo2.png`;
-
-/** Saqlangan akkount tanlanganda parol maydoniga tushadigan qiymat. */
-const MASKED_PASSWORD = "device-saved-password";
 
 type Mode = "login" | "signup";
 
@@ -41,7 +30,6 @@ interface FieldErrors {
 
 export function AuthScreen({ onAuthenticated }: Props) {
   const [mode, setMode] = useState<Mode>("login");
-  const [saved] = useState<DeviceAccount[]>(() => listDeviceAccounts());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,9 +37,6 @@ export function AuthScreen({ onAuthenticated }: Props) {
   const [nickname, setNickname] = useState("");
   const [password, setPassword] = useState("");
   const [reveal, setReveal] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [locked, setLocked] = useState<DeviceAccount | null>(null);
-  const pickerRef = useRef<HTMLDivElement>(null);
 
   /* Ro'yxatdan o'tish */
   const [firstName, setFirstName] = useState("");
@@ -63,55 +48,20 @@ export function AuthScreen({ onAuthenticated }: Props) {
   const [newReveal, setNewReveal] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
-  useEffect(() => {
-    if (!pickerOpen) return;
-
-    const onPointerDown = (event: MouseEvent) => {
-      if (!pickerRef.current?.contains(event.target as Node)) setPickerOpen(false);
-    };
-
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
-  }, [pickerOpen]);
-
   const switchMode = (next: Mode) => {
     setMode(next);
     setError(null);
     setFieldErrors({});
-    setPickerOpen(false);
   };
 
   const handleNicknameChange = (value: string) => {
     setNickname(value.toLowerCase().replace(/\s+/g, ""));
-    if (locked) {
-      setLocked(null);
-      setPassword("");
-    }
-    setError(null);
-  };
-
-  const pickAccount = (entry: DeviceAccount) => {
-    setNickname(entry.nickname);
-    setPassword(MASKED_PASSWORD);
-    setLocked(entry);
-    setReveal(false);
-    setPickerOpen(false);
     setError(null);
   };
 
   const handleLogin = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
-
-    if (locked && nickname === locked.nickname) {
-      setBusy(true);
-      const result = logInWithDevice(locked.nickname);
-      setBusy(false);
-
-      if (result.ok) onAuthenticated(result.session);
-      else setError(result.error);
-      return;
-    }
 
     const nicknameIssue = validateNickname(nickname);
     if (nicknameIssue) {
@@ -200,17 +150,10 @@ export function AuthScreen({ onAuthenticated }: Props) {
           {mode === "login" ? (
             <>
               <form className="auth__form" onSubmit={handleLogin} noValidate>
-                <div className="field" ref={pickerRef}>
-                  <button
-                    type="button"
-                    className="field__icon field__icon--button"
-                    aria-label="Saved accounts on this device"
-                    aria-expanded={pickerOpen}
-                    disabled={saved.length === 0}
-                    onClick={() => setPickerOpen((open) => !open)}
-                  >
-                    <Mail size={19} strokeWidth={1.9} />
-                  </button>
+                <div className="field">
+                  <span className="field__icon">
+                    <AtSign size={19} strokeWidth={1.9} />
+                  </span>
 
                   <input
                     className="field__input"
@@ -225,42 +168,6 @@ export function AuthScreen({ onAuthenticated }: Props) {
                     spellCheck={false}
                     aria-invalid={Boolean(error)}
                   />
-
-                  {pickerOpen && saved.length > 0 && (
-                    <div className="picker" role="listbox" aria-label="Saved accounts">
-                      {saved.map((entry) => (
-                        <button
-                          key={entry.nickname}
-                          type="button"
-                          className="picker__item"
-                          role="option"
-                          aria-selected={false}
-                          onClick={() => pickAccount(entry)}
-                        >
-                          <span className="picker__avatar">
-                            {entry.firstName.slice(0, 1).toUpperCase()}
-                          </span>
-                          <span className="picker__text">
-                            <span className="picker__nick">{entry.nickname}</span>
-                            <span className="picker__sub">{entry.firstName}</span>
-                          </span>
-                        </button>
-                      ))}
-
-                      <button
-                        type="button"
-                        className="picker__item picker__item--muted"
-                        onClick={() => {
-                          setPickerOpen(false);
-                          setNickname("");
-                          setPassword("");
-                          setLocked(null);
-                        }}
-                      >
-                        Use another account
-                      </button>
-                    </div>
-                  )}
                 </div>
 
                 <div className="field">
@@ -275,7 +182,6 @@ export function AuthScreen({ onAuthenticated }: Props) {
                     placeholder="Password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    readOnly={Boolean(locked)}
                     autoComplete="current-password"
                     aria-invalid={Boolean(error)}
                   />
@@ -284,7 +190,6 @@ export function AuthScreen({ onAuthenticated }: Props) {
                     type="button"
                     className="field__action"
                     onClick={() => setReveal((visible) => !visible)}
-                    disabled={Boolean(locked)}
                     aria-label={reveal ? "Hide password" : "Show password"}
                   >
                     {reveal ? <EyeOff size={19} strokeWidth={1.9} /> : <Eye size={19} strokeWidth={1.9} />}
