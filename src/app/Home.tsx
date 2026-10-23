@@ -3,6 +3,7 @@ import { ChevronDown, LogOut, RotateCcw, Search } from "lucide-react";
 import { CurrencySheet } from "./CurrencySheet";
 import { PlaceSheet } from "./PlaceSheet";
 import { WeatherCard } from "./WeatherCard";
+import { AppNav } from "../components/AppNav";
 import { BottomNav, type Tab } from "../components/BottomNav";
 import { Toast } from "../components/Toast";
 import type { Session } from "../lib/auth";
@@ -58,6 +59,7 @@ export function Home({ session, theme, onLogout, onReplay, onNavigate }: Props) 
   const [locateError, setLocateError] = useState<string | null>(null);
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const menuRef = useRef<HTMLDivElement>(null);
@@ -257,15 +259,26 @@ export function Home({ session, theme, onLogout, onReplay, onNavigate }: Props) 
   const initial = (session.firstName.trim()[0] ?? session.nickname[0] ?? "F").toUpperCase();
 
   return (
-    <div className={`home${sheet ? " is-locked" : ""}`} data-theme={theme}>
+    <div className={`home${sheet || navOpen ? " is-locked" : ""}`} data-theme={theme}>
       <div className="home__glow home__glow--one" aria-hidden="true" />
       <div className="home__glow home__glow--two" aria-hidden="true" />
 
       <header className="home__header">
-        <div className="home__brand">
+        <button
+          type="button"
+          className="home__brand"
+          onClick={() => {
+            setMenuOpen(false);
+            setNavOpen(true);
+          }}
+          aria-label="Open F App menu"
+          aria-haspopup="dialog"
+          aria-expanded={navOpen}
+          aria-controls="app-nav"
+        >
           <img className="home__logo" src={LOGO_SRC} alt="" aria-hidden="true" draggable={false} />
           <span className="home__wordmark">F App</span>
-        </div>
+        </button>
 
         <div className="home__actions">
           <button
@@ -515,6 +528,12 @@ export function Home({ session, theme, onLogout, onReplay, onNavigate }: Props) 
       <BottomNav active="home" onNavigate={onNavigate} />
 
       <Toast message={toast} />
+
+      <AppNav
+        open={navOpen}
+        onClose={() => setNavOpen(false)}
+        onSoon={showToast}
+      />
 
       {sheet?.type === "slot" ? (
         <CurrencySheet

@@ -74,6 +74,23 @@
   align-items: center;
   gap: 9px;
   min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.home__brand:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline-offset: 4px;
+}
+
+.home__brand:hover .home__logo {
+  transform: translateY(-1px) scale(1.03);
 }
 
 .home__logo {
@@ -83,6 +100,7 @@
   filter: drop-shadow(0 6px 16px rgba(46, 116, 255, 0.36));
   user-select: none;
   -webkit-user-drag: none;
+  transition: transform 0.18s var(--ease-out);
 }
 
 .home__wordmark {
