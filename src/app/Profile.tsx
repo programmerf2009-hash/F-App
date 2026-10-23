@@ -5,6 +5,7 @@ import {
   Check,
   ChevronRight,
   Clock3,
+  Globe2,
   Images,
   LoaderCircle,
   Lock,
@@ -12,6 +13,7 @@ import {
   Pause,
   Pencil,
   Play,
+  Plus,
   Search as SearchIcon,
   UserCheck,
   UserMinus,
@@ -20,10 +22,14 @@ import {
   X,
 } from "lucide-react";
 import { BottomNav, type Tab } from "../components/BottomNav";
+import { MediaComposer } from "../components/MediaComposer";
 import { PersonAvatar } from "../components/PersonAvatar";
+import { PostViewer } from "../components/PostViewer";
 import { SocialHeader } from "../components/SocialHeader";
+import { StoryViewer } from "../components/StoryViewer";
 import { Toast } from "../components/Toast";
 import { getSongSignedUrl, type Session, type SongMeta } from "../lib/auth";
+import { deletePost, deleteStory, listPosts, listStories, type PostItem, type StoryItem } from "../lib/media";
 import { setPendingCount } from "../lib/pending";
 import {
   acceptFriendRequest,
@@ -43,6 +49,7 @@ import {
 import { formatDuration } from "../lib/song-store";
 import type { Theme } from "../lib/theme";
 import "./social.css";
+import "./media.css";
 
 type ProfileTab = "posts" | "friends" | "requests";
 
@@ -114,6 +121,13 @@ export function ProfileView({
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [posts, setPosts] = useState<PostItem[]>([]);
+  const [stories, setStories] = useState<StoryItem[]>([]);
+  const [mediaStatus, setMediaStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [mediaError, setMediaError] = useState<string | null>(null);
+  const [viewerPost, setViewerPost] = useState<PostItem | null>(null);
+  const [storyViewer, setStoryViewer] = useState<number | null>(null);
+  const [composer, setComposer] = useState<"post" | "story" | null>(null);
 
   const toastTimer = useRef<number | null>(null);
 
@@ -123,10 +137,37 @@ export function ProfileView({
     toastTimer.current = window.setTimeout(() => setToast(null), 2800);
   }, []);
 
+  const closeComposer = useCallback(() => setComposer(null), []);
+  const closePostViewer = useCallback(() => setViewerPost(null), []);
+  const closeStoryViewer = useCallback(() => setStoryViewer(null), []);
+
   useEffect(() => {
     return () => {
       if (toastTimer.current) window.clearTimeout(toastTimer.current);
     };
+  }, []);
+
+  const loadMedia = useCallback(async (ownerId: string, showLoading = true) => {
+    if (showLoading) {
+      setMediaStatus("loading");
+      setMediaError(null);
+      setPosts([]);
+      setStories([]);
+    }
+
+    try {
+      const [nextPosts, nextStories] = await Promise.all([
+        listPosts(ownerId),
+        listStories(ownerId),
+      ]);
+      setPosts(nextPosts);
+      setStories(nextStories);
+      setMediaStatus("ready");
+      setMediaError(null);
+    } catch (caught) {
+      setMediaError(socialErrorMessage(caught, "Could not load posts."));
+      if (showLoading) setMediaStatus("error");
+    }
   }, []);
 
   const load = useCallback(
@@ -143,11 +184,16 @@ export function ProfileView({
           setStatus("missing");
           setFriends([]);
           setRequests([]);
+          setPosts([]);
+          setStories([]);
+          setMediaStatus("ready");
+          setMediaError(null);
           return;
         }
 
         setProfile(next);
         setStatus("ready");
+        void loadMedia(next.id, true);
 
         if (next.relation === "self") {
           try {
@@ -177,7 +223,7 @@ export function ProfileView({
         setStatus("error");
       }
     },
-    [nickname],
+    [nickname, loadMedia],
   );
 
   useEffect(() => {
@@ -185,6 +231,13 @@ export function ProfileView({
     setProfile(null);
     setFriends([]);
     setRequests([]);
+    setPosts([]);
+    setStories([]);
+    setMediaStatus("loading");
+    setMediaError(null);
+    setViewerPost(null);
+    setStoryViewer(null);
+    setComposer(null);
     setConfirmRemove(false);
     void load(true);
   }, [load]);
@@ -194,6 +247,36 @@ export function ProfileView({
       void load(false);
     });
   }, [load]);
+
+  useEffect(() => {
+    if (viewerPost && !posts.some((item) => item.id === viewerPost.id)) {
+      setViewerPost(null);
+    }
+  }, [posts, viewerPost]);
+
+  useEffect(() => {
+    if (storyViewer !== null && stories.length === 0) setStoryViewer(null);
+  }, [stories, storyViewer]);
+
+  useEffect(() => {
+    if (stories.length === 0) return;
+
+    const nextExpiry = Math.min(
+      ...stories.map((story) => new Date(story.expiresAt).getTime()),
+    );
+    if (!Number.isFinite(nextExpiry)) return;
+
+    const timer = window.setTimeout(
+      () => {
+        setStories((previous) =>
+          previous.filter((story) => new Date(story.expiresAt).getTime() > Date.now()),
+        );
+      },
+      Math.max(1000, nextExpiry - Date.now() + 1000),
+    );
+
+    return () => window.clearTimeout(timer);
+  }, [stories]);
 
   useEffect(() => {
     if (!profile) return;
@@ -289,6 +372,22 @@ export function ProfileView({
     }
   };
 
+  const refreshMedia = async () => {
+    if (profile) await loadMedia(profile.id, false);
+  };
+
+  const removePost = async (post: PostItem) => {
+    await deletePost(post);
+    setPosts((previous) => previous.filter((item) => item.id !== post.id));
+    showToast("Post deleted");
+  };
+
+  const removeStory = async (story: StoryItem) => {
+    await deleteStory(story);
+    setStories((previous) => previous.filter((item) => item.id !== story.id));
+    showToast("Story deleted");
+  };
+
   if (status === "loading") {
     return (
       <div className="profile-view">
@@ -361,7 +460,32 @@ export function ProfileView({
 
       <section className="profile__hero" aria-label="Profile card">
         <div className="profile__top">
-          <PersonAvatar url={profile.avatar} name={profile.firstName} size="lg" />
+          <div className="profile__avatar-wrap">
+            {stories.length > 0 ? (
+              <button
+                type="button"
+                className="story-ring"
+                onClick={() => setStoryViewer(0)}
+                aria-label={`View ${profile.firstName}'s story`}
+              >
+                <PersonAvatar url={profile.avatar} name={profile.firstName} size="lg" />
+              </button>
+            ) : (
+              <PersonAvatar url={profile.avatar} name={profile.firstName} size="lg" />
+            )}
+
+            {isSelf ? (
+              <button
+                type="button"
+                className="story-add"
+                onClick={() => setComposer("story")}
+                aria-label="Add story"
+                title="Add story"
+              >
+                <Plus size={14} strokeWidth={2.8} />
+              </button>
+            ) : null}
+          </div>
 
           <div className="profile__id">
             <h2 className="profile__name">
@@ -524,15 +648,110 @@ export function ProfileView({
 
       {tab === "posts" ? (
         <div className="profile__panel">
-          <div className="social__state social__state--soft">
-            <Images size={26} strokeWidth={1.8} />
-            <h2>{privateVisible ? "No posts yet" : "No public posts yet"}</h2>
-            <p>
-              {privateVisible
-                ? "Photos and videos will appear here."
-                : "This account has no public photos or videos."}
-            </p>
-          </div>
+          {isSelf ? (
+            <div className="post-toolbar">
+              <p className="post-toolbar__text">
+                {mediaStatus === "ready" ? (
+                  <>
+                    <span>{posts.length}</span> {posts.length === 1 ? "post" : "posts"}
+                  </>
+                ) : (
+                  "Your posts"
+                )}
+              </p>
+              <button
+                type="button"
+                className="pbtn pbtn--primary pbtn--sm"
+                onClick={() => setComposer("post")}
+              >
+                <Plus size={13} strokeWidth={2.5} />
+                New post
+              </button>
+            </div>
+          ) : null}
+
+          {mediaStatus === "loading" ? (
+            <div className="post-grid post-grid--loading" aria-hidden="true">
+              {[0, 1, 2, 3, 4, 5].map((item) => (
+                <span className="psk post-skeleton" key={item} />
+              ))}
+            </div>
+          ) : mediaStatus === "error" ? (
+            <div className="social__state social__state--soft">
+              <Images size={26} strokeWidth={1.8} />
+              <h2>Could not load posts</h2>
+              <p>{mediaError ?? "Try again in a moment."}</p>
+              <button
+                type="button"
+                className="pbtn pbtn--ghost"
+                onClick={() => void loadMedia(profile.id, true)}
+              >
+                Try again
+              </button>
+            </div>
+          ) : posts.length === 0 ? (
+            <div className="social__state social__state--soft">
+              <Images size={26} strokeWidth={1.8} />
+              <h2>{privateVisible ? "No posts yet" : "No public posts yet"}</h2>
+              <p>
+                {isSelf
+                  ? "Share your first photo or video with your friends."
+                  : privateVisible
+                    ? "Photos and videos will appear here."
+                    : "This account has no public photos or videos."}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="post-grid">
+                {posts.map((post) => (
+                  <button
+                    type="button"
+                    className="post-tile"
+                    key={post.id}
+                    onClick={() => setViewerPost(post)}
+                    aria-label={`Open ${post.visibility === "public" ? "public" : "friends-only"} ${post.kind}${post.caption ? `: ${post.caption}` : ""}`}
+                  >
+                    {post.mediaUrl ? (
+                      post.kind === "photo" ? (
+                        <img src={post.mediaUrl} alt={post.caption || "Post"} loading="lazy" />
+                      ) : (
+                        <video
+                          src={post.mediaUrl}
+                          preload="metadata"
+                          muted
+                          playsInline
+                          aria-hidden="true"
+                        />
+                      )
+                    ) : (
+                      <span className="post-tile__missing">
+                        <Images size={20} strokeWidth={1.8} />
+                      </span>
+                    )}
+
+                    <span
+                      className="post-tile__badge"
+                      title={post.visibility === "public" ? "Public post" : "Friends only"}
+                      aria-hidden="true"
+                    >
+                      {post.visibility === "public" ? (
+                        <Globe2 size={12} strokeWidth={2.2} />
+                      ) : (
+                        <Users size={12} strokeWidth={2.2} />
+                      )}
+                    </span>
+
+                    {post.kind === "video" ? (
+                      <span className="post-tile__play" aria-hidden="true">
+                        <Play size={17} strokeWidth={2.2} fill="currentColor" />
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       ) : null}
 
@@ -634,6 +853,48 @@ export function ProfileView({
       ) : null}
 
       <Toast message={toast} />
+
+      {composer ? (
+        <MediaComposer
+          mode={composer}
+          onClose={closeComposer}
+          onCreated={refreshMedia}
+          showToast={showToast}
+        />
+      ) : null}
+
+      {viewerPost ? (
+        <PostViewer
+          post={viewerPost}
+          owner={{
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+            nickname: profile.nickname,
+            avatar: profile.avatar,
+          }}
+          canDelete={isSelf}
+          onClose={closePostViewer}
+          onDelete={removePost}
+          onToast={showToast}
+        />
+      ) : null}
+
+      {storyViewer !== null ? (
+        <StoryViewer
+          stories={stories}
+          initialIndex={storyViewer}
+          owner={{
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+            nickname: profile.nickname,
+            avatar: profile.avatar,
+          }}
+          canDelete={isSelf}
+          onClose={closeStoryViewer}
+          onDelete={removeStory}
+          onToast={showToast}
+        />
+      ) : null}
 
       {confirmRemove ? (
         <div className="confirm" role="dialog" aria-modal="true" aria-label="Remove friend">
