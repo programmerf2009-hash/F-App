@@ -1,0 +1,673 @@
+/* Shared news sheets and the channel creation form */
+
+.news-app .sheet__panel {
+  border-color: var(--n-line);
+  background:
+    radial-gradient(100% 70% at 100% 0%, rgba(47, 107, 255, 0.06), transparent 62%),
+    var(--n-surface);
+  box-shadow: 0 -28px 80px rgba(16, 24, 40, 0.24);
+}
+
+.news-app .sheet__grab {
+  background: var(--n-line-strong);
+}
+
+.news-app .sheet__close {
+  border-color: var(--n-line);
+  background: var(--n-surface-soft);
+  color: var(--n-muted);
+}
+
+.news-app .sheet__close:hover {
+  background: var(--n-paper-deep);
+  color: var(--n-ink);
+}
+
+.news-app .sheet-search {
+  background: linear-gradient(
+    180deg,
+    var(--n-surface) 0%,
+    var(--n-surface) 68%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+.news-app .sheet-search input {
+  border-color: var(--n-line);
+  background: var(--n-surface-soft);
+  color: var(--n-ink);
+}
+
+.news-app .sheet-search input:focus {
+  border-color: rgba(47, 107, 255, 0.55);
+  background: var(--n-surface);
+  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.1);
+}
+
+.news-app .pick-item:hover {
+  background: rgba(47, 107, 255, 0.05);
+}
+
+.news-app .pick-item.is-active {
+  background: var(--n-blue-soft);
+}
+
+.news-app .pick-action {
+  border-color: var(--n-line);
+  background: var(--n-surface-soft);
+}
+
+.news-sheet {
+  display: grid;
+  gap: 18px;
+  padding: 4px 4px 8px;
+}
+
+.news-sheet__group {
+  display: grid;
+  gap: 8px;
+}
+
+.news-sheet__label {
+  margin: 0;
+  color: var(--n-muted);
+  font-size: 9.5px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.news-sheet__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.news-sheet-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 31px;
+  padding: 0 10px;
+  border: 1px solid var(--n-line);
+  border-radius: 999px;
+  background: var(--n-surface-soft);
+  color: var(--n-muted);
+  font-size: 10.5px;
+  font-weight: 650;
+  transition: background 0.16s, border-color 0.16s, color 0.16s;
+}
+
+.news-sheet-chip:hover {
+  border-color: var(--n-line-strong);
+  color: var(--n-ink);
+}
+
+.news-sheet-chip.is-active {
+  border-color: var(--n-blue);
+  background: var(--n-blue-soft);
+  color: var(--n-blue-deep);
+}
+
+.news-segment {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--n-line);
+  border-radius: 12px;
+  background: var(--n-surface-soft);
+}
+
+.news-segment button {
+  min-height: 33px;
+  padding: 0 7px;
+  border-radius: 9px;
+  color: var(--n-muted);
+  font-size: 10px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.news-segment button.is-active {
+  background: var(--n-surface);
+  box-shadow: 0 2px 7px rgba(16, 24, 40, 0.1);
+  color: var(--n-ink);
+}
+
+.news-segment--small {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  padding: 2px;
+}
+
+.news-segment--small button {
+  min-width: 35px;
+  min-height: 28px;
+  padding: 0 7px;
+  font-size: 9.5px;
+}
+
+.news-sheet__actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 6px;
+}
+
+.news-sheet__actions .news-button {
+  flex: 1;
+}
+
+/* Weather sheet */
+.news-weather-sheet {
+  display: grid;
+  gap: 11px;
+  padding: 3px 4px 10px;
+}
+
+.news-weather-sheet__now {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 19px;
+  background:
+    radial-gradient(100% 120% at 100% 0%, rgba(56, 189, 248, 0.14), transparent 65%),
+    linear-gradient(135deg, #f9fcff, #eef4ff);
+}
+
+.news-weather-sheet__glyph {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 67px;
+  height: 67px;
+  border-radius: 19px;
+  background: rgba(255, 255, 255, 0.68);
+  color: #1189bf;
+}
+
+.news-weather-sheet__reading {
+  min-width: 0;
+  flex: 1;
+}
+
+.news-weather-sheet__temp {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  margin: 0;
+  color: var(--n-ink);
+  font-family: var(--n-serif);
+  font-size: 46px;
+  font-weight: 600;
+  letter-spacing: -0.06em;
+  line-height: 0.9;
+}
+
+.news-weather-sheet__temp small {
+  margin-left: 3px;
+  color: var(--n-muted);
+  font-family: var(--n-sans);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.news-weather-sheet__condition {
+  display: grid;
+  gap: 1px;
+  margin: 5px 0 0;
+  color: var(--n-ink-soft);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.news-weather-sheet__condition span {
+  color: var(--n-muted);
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.news-weather-sheet__highlow {
+  display: grid;
+  gap: 3px;
+  flex: none;
+  color: var(--n-muted);
+  font-size: 9px;
+  text-align: right;
+}
+
+.news-weather-sheet__highlow b {
+  color: var(--n-ink);
+  font-weight: 750;
+}
+
+.news-weather-sheet__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--n-line);
+  border-radius: 17px;
+  background: var(--n-line);
+}
+
+.news-weather-sheet__stats > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1px 7px;
+  padding: 10px;
+  background: var(--n-surface-soft);
+}
+
+.news-weather-sheet__stat-icon {
+  display: grid;
+  grid-row: span 2;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  border-radius: 9px;
+  background: var(--n-surface);
+  color: var(--n-blue);
+}
+
+.news-weather-sheet__stats span:not(.news-weather-sheet__stat-icon) {
+  color: var(--n-muted);
+  font-size: 8.5px;
+}
+
+.news-weather-sheet__stats strong {
+  color: var(--n-ink);
+  font-size: 10.5px;
+  font-weight: 750;
+}
+
+.news-weather-sheet__place {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 11px;
+  border: 1px solid var(--n-line);
+  border-radius: 15px;
+  background: var(--n-surface-soft);
+  text-align: left;
+}
+
+.news-weather-sheet__place-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--n-surface);
+  color: var(--n-blue);
+}
+
+.news-weather-sheet__place > span:nth-child(2) {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.news-weather-sheet__place span:not(.news-weather-sheet__place-icon) {
+  color: var(--n-muted);
+  font-size: 8.5px;
+}
+
+.news-weather-sheet__place strong {
+  color: var(--n-ink);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.news-weather-sheet__place > svg {
+  flex: none;
+  color: var(--n-faint);
+}
+
+.news-weather-sheet__alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px;
+  border: 1px solid rgba(229, 72, 63, 0.14);
+  border-radius: 15px;
+  background: var(--n-red-soft);
+}
+
+.news-weather-sheet__alert > span:first-child {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 31px;
+  height: 31px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.65);
+  color: var(--n-red);
+}
+
+.news-weather-sheet__alert > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.news-weather-sheet__alert strong {
+  color: var(--n-ink);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.news-weather-sheet__alert p {
+  margin: 2px 0 0;
+  color: var(--n-muted);
+  font-size: 8.5px;
+  line-height: 1.4;
+}
+
+.news-weather-sheet__alert > button {
+  flex: none;
+  color: var(--n-red);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.news-weather-sheet__source {
+  margin: 0;
+  color: var(--n-faint);
+  font-size: 8.5px;
+  text-align: center;
+}
+
+.news-weather-sheet__skeleton {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--n-line);
+  border-radius: 19px;
+  background: var(--n-surface-soft);
+}
+
+.news-skeleton {
+  display: block;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #ece6db, #f7f3ec, #ece6db);
+  background-size: 200% 100%;
+  animation: news-skeleton 1.3s ease-in-out infinite;
+}
+
+.news-skeleton--circle {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+}
+
+.news-skeleton--temp {
+  width: 92px;
+  height: 34px;
+}
+
+.news-skeleton--line {
+  width: 150px;
+  height: 10px;
+  margin-top: 7px;
+}
+
+.news-weather-sheet__error {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  padding: 24px 16px;
+  border: 1px solid var(--n-line);
+  border-radius: 19px;
+  background: var(--n-surface-soft);
+  text-align: center;
+  color: var(--n-muted);
+}
+
+.news-weather-sheet__error svg {
+  color: var(--n-blue);
+}
+
+.news-weather-sheet__error h3 {
+  margin: 0;
+  color: var(--n-ink);
+  font-size: 13px;
+}
+
+.news-weather-sheet__error p {
+  margin: 0;
+  font-size: 9.5px;
+}
+
+.news-weather-sheet__error .news-button {
+  margin-top: 5px;
+}
+
+/* Create channel form */
+.news-channel-form {
+  display: grid;
+  gap: 14px;
+  padding: 4px 4px 10px;
+}
+
+.news-channel-form__owner {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px;
+  border: 1px solid var(--n-line);
+  border-radius: 15px;
+  background: var(--n-surface-soft);
+}
+
+.news-channel-form__owner-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--n-blue);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.news-channel-form__owner-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.news-channel-form__owner > div {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.news-channel-form__owner span:not(.news-channel-form__owner-avatar) {
+  color: var(--n-muted);
+  font-size: 8.5px;
+}
+
+.news-channel-form__owner strong {
+  overflow: hidden;
+  color: var(--n-ink);
+  font-size: 11.5px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.news-channel-form__owner small {
+  color: var(--n-muted);
+  font-size: 9px;
+}
+
+.news-channel-form__owner > svg {
+  flex: none;
+  color: var(--n-green);
+}
+
+.news-field {
+  display: grid;
+  gap: 6px;
+}
+
+.news-field > span {
+  color: var(--n-ink-soft);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.news-field input,
+.news-field textarea {
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid var(--n-line);
+  border-radius: 11px;
+  outline: 0;
+  background: var(--n-surface-soft);
+  color: var(--n-ink);
+  font-family: var(--n-sans);
+  font-size: 12px;
+  line-height: 1.4;
+  resize: vertical;
+  transition: border-color 0.16s, background 0.16s, box-shadow 0.16s;
+}
+
+.news-field input {
+  height: 42px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.news-field input:focus,
+.news-field textarea:focus {
+  border-color: rgba(47, 107, 255, 0.5);
+  background: var(--n-surface);
+  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.09);
+}
+
+.news-field input::placeholder,
+.news-field textarea::placeholder {
+  color: var(--n-faint);
+}
+
+.news-field small {
+  color: var(--n-faint);
+  font-size: 8.5px;
+  line-height: 1.4;
+}
+
+.news-field small.is-error {
+  color: var(--n-red);
+}
+
+.news-field__prefix {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding-left: 11px;
+  border: 1px solid var(--n-line);
+  border-radius: 11px;
+  background: var(--n-surface-soft);
+  color: var(--n-muted);
+  font-size: 12px;
+}
+
+.news-field__prefix:focus-within {
+  border-color: rgba(47, 107, 255, 0.5);
+  background: var(--n-surface);
+  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.09);
+}
+
+.news-field__prefix input {
+  padding-left: 1px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.news-field__prefix input:focus {
+  background: transparent;
+  box-shadow: none;
+}
+
+.news-channel-form__categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.news-channel-form__note {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid rgba(15, 157, 118, 0.15);
+  border-radius: 13px;
+  background: var(--n-green-soft);
+  color: var(--n-muted);
+}
+
+.news-channel-form__note svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--n-green);
+}
+
+.news-channel-form__note p {
+  margin: 0;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.news-form-error {
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(229, 72, 63, 0.16);
+  border-radius: 10px;
+  background: var(--n-red-soft);
+  color: var(--n-red);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+@keyframes news-skeleton {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (min-width: 700px) {
+  .news-sheet {
+    gap: 21px;
+  }
+
+  .news-weather-sheet__stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .news-channel-form {
+    gap: 17px;
+  }
+
+  .news-field input {
+    height: 46px;
+  }
+}

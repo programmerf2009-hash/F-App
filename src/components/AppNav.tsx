@@ -56,13 +56,15 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onSoon: (message: string) => void;
+  onOpenNews: () => void;
 }
 
 /**
  * F App navigatsiyasi. Home'dagi logotipdan ochiladi, paneldagi logotipdan
- * yopiladi. Ichki bo'limlar hali yo'q — bandlar "Coming soon" qaytaradi.
+ * yopiladi. News & Weather o'z bo'limini ochadi; qolgan bandlar hozircha
+ * "Coming soon" qaytaradi.
  */
-export function AppNav({ open, onClose, onSoon }: Props) {
+export function AppNav({ open, onClose, onSoon, onOpenNews }: Props) {
   useEffect(() => {
     if (!open) return;
 
@@ -78,6 +80,10 @@ export function AppNav({ open, onClose, onSoon }: Props) {
 
   const pickItem = (item: NavItem) => {
     onClose();
+    if (item.label === "News & Weather") {
+      onOpenNews();
+      return;
+    }
     if (item.label !== "Home") onSoon(`Coming soon: ${item.label}`);
   };
 

@@ -40,12 +40,13 @@ interface Props {
   onLogout: () => void;
   onReplay: () => void;
   onNavigate: (tab: Tab) => void;
+  onOpenNews: () => void;
 }
 
 type SheetState = null | { type: "slot"; index: number } | { type: "base" } | { type: "place" };
 
 /** Home — kurslar, ob-havo va bo'sh javonlar. */
-export function Home({ session, theme, onLogout, onReplay, onNavigate }: Props) {
+export function Home({ session, theme, onLogout, onReplay, onNavigate, onOpenNews }: Props) {
   const [prefs, setPrefs] = useState<HomePrefs>(loadHomePrefs);
 
   const [rates, setRates] = useState<RatesSnapshot | null>(null);
@@ -533,6 +534,7 @@ export function Home({ session, theme, onLogout, onReplay, onNavigate }: Props) 
         open={navOpen}
         onClose={() => setNavOpen(false)}
         onSoon={showToast}
+        onOpenNews={onOpenNews}
       />
 
       {sheet?.type === "slot" ? (

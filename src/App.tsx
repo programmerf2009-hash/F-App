@@ -6,6 +6,7 @@ import { Profile } from "./app/Profile";
 import { SearchPage } from "./app/Search";
 import { Settings } from "./app/Settings";
 import { SplashScreen } from "./app/SplashScreen";
+import { NewsApp } from "./news/NewsApp";
 import { getSession, logOut, type Session } from "./lib/auth";
 import { isOnboardingDone, markOnboardingDone, resetOnboarding } from "./lib/onboarding-storage";
 import { setPendingCount } from "./lib/pending";
@@ -32,6 +33,7 @@ export default function App() {
   const [phase, setPhase] = useState<Phase>(startIndex === null ? "splash" : "onboarding");
   const [tab, setTab] = useState<Tab>("home");
   const [profileTarget, setProfileTarget] = useState<string | null>(null);
+  const [newsOpen, setNewsOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(loadTheme);
 
   const restore = useCallback(async () => {
@@ -113,6 +115,7 @@ export default function App() {
     setSession(next);
     setTab("home");
     setProfileTarget(null);
+    setNewsOpen(false);
     setPhase("app");
   };
 
@@ -121,6 +124,7 @@ export default function App() {
     setSession(null);
     setTab("home");
     setProfileTarget(null);
+    setNewsOpen(false);
     setPhase("auth");
     setPendingCount(0);
   };
@@ -137,6 +141,7 @@ export default function App() {
 
   const navigate = useCallback((next: Tab) => {
     if (next === "profile") setProfileTarget(null);
+    setNewsOpen(false);
     setTab(next);
   }, []);
 
@@ -152,6 +157,10 @@ export default function App() {
   }
 
   if (phase === "app" && session) {
+    if (newsOpen) {
+      return <NewsApp session={session} onClose={() => setNewsOpen(false)} />;
+    }
+
     if (tab === "settings") {
       return (
         <Settings
@@ -189,6 +198,11 @@ export default function App() {
         onLogout={handleLogOut}
         onReplay={replayOnboarding}
         onNavigate={navigate}
+        onOpenNews={() => {
+          setTab("home");
+          setProfileTarget(null);
+          setNewsOpen(true);
+        }}
       />
     );
   }

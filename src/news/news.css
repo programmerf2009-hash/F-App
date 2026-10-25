@@ -1,0 +1,18 @@
+/* ==========================================================================
+   F News & Weather — fixed "Paper & Signal" identity
+   --------------------------------------------------------------------------
+   This section never inherits F App's Gold / Midnight surfaces. The F App
+   logo is always fapplogo2.png, unchanged, on a quiet white plate.
+   ========================================================================== */
+
+@import "./news-base.css";
+@import "./news-home.css";
+@import "./news-channels.css";
+@import "./news-shorts.css";
+@import "./news-settings.css";
+@import "./news-studio.css";
+@import "./news-article.css";
+@import "./news-channel-view.css";
+@import "./news-flash.css";
+@import "./news-search.css";
+@import "./news-sheets.css";
