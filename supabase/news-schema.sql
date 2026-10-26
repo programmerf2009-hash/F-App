@@ -348,10 +348,13 @@ create table if not exists public.news_preferences (
   time_filter       text not null default 'any',
   weather_place_id  text not null default 'toshkent',
   weather_label     text not null default 'Toshkent',
+  weather_region    text not null default '',
   weather_lat       numeric(9, 6),
   weather_lon       numeric(9, 6),
   weather_units     text not null default 'C',
   weather_alerts    boolean not null default true,
+  breaking_alerts   boolean not null default true,
+  autoplay_video    boolean not null default false,
   language          text not null default 'uz',
   updated_at        timestamptz not null default now(),
   constraint news_preferences_scope
@@ -365,6 +368,12 @@ create table if not exists public.news_preferences (
   constraint news_preferences_units
     check (weather_units in ('C', 'F'))
 );
+
+-- Upgrade path for projects that applied an earlier revision of this file.
+alter table public.news_preferences
+  add column if not exists weather_region text not null default '',
+  add column if not exists breaking_alerts boolean not null default true,
+  add column if not exists autoplay_video boolean not null default false;
 
 create table if not exists public.news_channel_verifications (
   id            uuid primary key default gen_random_uuid(),
@@ -498,6 +507,27 @@ as $$
   join public.profiles p on p.id = c.owner_id
   where c.id = p_channel_id
   limit 1;
+$$;
+
+-- Directory reads need the public owner card for several channels at once.
+create or replace function public.news_channel_owners(p_channel_ids uuid[])
+returns table (
+  channel_id uuid,
+  owner_id uuid,
+  nickname text,
+  first_name text,
+  last_name text,
+  avatar_path text
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select c.id, c.owner_id, p.nickname, p.first_name, p.last_name, p.avatar_path
+  from public.news_channels c
+  join public.profiles p on p.id = c.owner_id
+  where c.id = any (p_channel_ids);
 $$;
 
 -- ----------------------------------------------------------------------------
@@ -1603,6 +1633,7 @@ grant execute on function public.news_is_channel_member(uuid, text[]) to authent
 grant execute on function public.news_can_edit_channel(uuid) to authenticated;
 grant execute on function public.news_is_admin() to authenticated;
 grant execute on function public.news_channel_owner(uuid) to authenticated;
+grant execute on function public.news_channel_owners(uuid[]) to authenticated;
 
 grant execute on function public.news_article_feed(text, text, text, boolean, timestamptz, uuid, integer) to authenticated;
 grant execute on function public.news_search_articles(text, text, timestamptz, uuid, integer) to authenticated;

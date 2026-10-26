@@ -3,6 +3,7 @@ import {
   BarChart3,
   BadgeCheck,
   ChevronRight,
+  Clapperboard,
   FileText,
   PenLine,
   Plus,
@@ -13,24 +14,45 @@ import {
 } from "lucide-react";
 import type { Session } from "../lib/auth";
 import { ChannelAvatar, NewsSectionHead, VerifiedBadge } from "./NewsChrome";
-import { formatCount, type NewsChannel } from "./news-types";
+import {
+  formatCount,
+  isFlashLive,
+  type NewsArticle,
+  type NewsChannel,
+  type NewsFlash,
+} from "./news-types";
 
 interface Props {
   session: Session;
   myChannels: NewsChannel[];
+  articles: NewsArticle[];
+  flashes: NewsFlash[];
   onOpenChannel: (channelId: string) => void;
   onOpenCreate: () => void;
+  onComposeFlash: (channelId: string) => void;
+  onComposeArticle: (channelId: string) => void;
+  onComposeShort: (channelId: string) => void;
   notify: (message: string) => void;
 }
 
 export function NewsStudio({
   session,
   myChannels,
+  articles,
+  flashes,
   onOpenChannel,
   onOpenCreate,
+  onComposeFlash,
+  onComposeArticle,
+  onComposeShort,
   notify,
 }: Props) {
   const totalSubscribers = myChannels.reduce((sum, channel) => sum + channel.subscribers, 0);
+  const channelIds = new Set(myChannels.map((channel) => channel.id));
+  const postCount = articles.filter((article) => channelIds.has(article.channelId)).length;
+  const liveFlashCount = flashes.filter(
+    (flash) => channelIds.has(flash.channelId) && isFlashLive(flash),
+  ).length;
 
   return (
     <main className="news-main news-studio">
@@ -39,7 +61,7 @@ export function NewsStudio({
           <div>
             <p className="news-kicker">Creator desk</p>
             <h1>Studio</h1>
-            <p>Open a channel, publish urgent video flashes and build a newsroom of your own.</p>
+            <p>Open a channel, publish video flashes, news Shorts and articles, and build a newsroom of your own.</p>
           </div>
           <button type="button" className="news-button news-button--blue" onClick={onOpenCreate}>
             <Plus size={15} strokeWidth={2.4} />
@@ -60,11 +82,11 @@ export function NewsStudio({
               </div>
               <div>
                 <span>Posts</span>
-                <strong>0</strong>
+                <strong>{postCount}</strong>
               </div>
               <div>
                 <span>Flash live</span>
-                <strong>0</strong>
+                <strong>{liveFlashCount}</strong>
               </div>
             </section>
 
@@ -118,9 +140,7 @@ export function NewsStudio({
                       <button
                         type="button"
                         className="news-button news-button--ink"
-                        onClick={() =>
-                          notify("Flash composer is the next Studio step. The channel is ready.")
-                        }
+                        onClick={() => onComposeFlash(channel.id)}
                       >
                         <Video size={15} strokeWidth={2.2} />
                         New flash
@@ -128,9 +148,15 @@ export function NewsStudio({
                       <button
                         type="button"
                         className="news-button news-button--ghost"
-                        onClick={() =>
-                          notify("Article editor is the next Studio step. The channel is ready.")
-                        }
+                        onClick={() => onComposeShort(channel.id)}
+                      >
+                        <Clapperboard size={15} strokeWidth={2.2} />
+                        New short
+                      </button>
+                      <button
+                        type="button"
+                        className="news-button news-button--ghost"
+                        onClick={() => onComposeArticle(channel.id)}
                       >
                         <FileText size={15} strokeWidth={2.2} />
                         Write article
@@ -150,8 +176,8 @@ export function NewsStudio({
             <p className="news-studio-hero__eyebrow">Your newsroom, your rules</p>
             <h2 id="studio-empty-title">Start with a name. Build the rest as you go.</h2>
             <p>
-              Anyone can create a news channel. Publish recorded video flashes, write articles and
-              grow a subscriber base without leaving F App.
+              Anyone can create a news channel. Publish recorded video flashes, news Shorts and
+              articles, and grow a subscriber base without leaving F App.
             </p>
             <button type="button" className="news-button news-button--paper" onClick={onOpenCreate}>
               Create your first channel

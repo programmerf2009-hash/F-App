@@ -188,7 +188,7 @@ export function CreateChannelSheet({
   session: Session;
   channels: NewsChannel[];
   onClose: () => void;
-  onCreate: (input: CreateChannelInput) => string | null;
+  onCreate: (input: CreateChannelInput) => Promise<string | null>;
 }) {
   const [name, setName] = useState("");
   const [handle, setHandle] = useState("");
@@ -196,6 +196,7 @@ export function CreateChannelSheet({
   const [category, setCategory] = useState<NewsCategory>("Local");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const ownerName = `${session.firstName} ${session.lastName}`.trim();
   const previewHandle = handle || slugifyHandle(name) || "yourchannel";
@@ -214,8 +215,9 @@ export function CreateChannelSheet({
     setError(null);
   };
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (creating) return;
 
     const cleanName = name.trim();
     const cleanHandle = slugifyHandle(handle || cleanName);
@@ -233,19 +235,26 @@ export function CreateChannelSheet({
       return;
     }
 
-    const result = onCreate({
-      name: cleanName,
-      handle: cleanHandle,
-      category,
-      description: description.trim(),
-    });
+    setCreating(true);
+    setError(null);
 
-    if (result) {
-      setError(result);
-      return;
+    try {
+      const result = await onCreate({
+        name: cleanName,
+        handle: cleanHandle,
+        category,
+        description: description.trim(),
+      });
+
+      if (result) {
+        setError(result);
+        return;
+      }
+
+      onClose();
+    } finally {
+      setCreating(false);
     }
-
-    onClose();
   };
 
   return (
@@ -344,11 +353,20 @@ export function CreateChannelSheet({
         ) : null}
 
         <div className="news-sheet__actions">
-          <button type="button" className="news-button news-button--ghost" onClick={onClose}>
+          <button
+            type="button"
+            className="news-button news-button--ghost"
+            onClick={onClose}
+            disabled={creating}
+          >
             Cancel
           </button>
-          <button type="submit" className="news-button news-button--blue">
-            Create channel
+          <button
+            type="submit"
+            className="news-button news-button--blue"
+            disabled={creating || duplicate}
+          >
+            {creating ? "Creating..." : "Create channel"}
             <ArrowRight size={15} strokeWidth={2.2} />
           </button>
         </div>

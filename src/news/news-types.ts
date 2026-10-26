@@ -39,6 +39,8 @@ export interface NewsChannel {
   ownerNickname: string;
   verified: boolean;
   subscribers: number;
+  /** Channel avatar, independent of the cover image. */
+  avatar?: string | null;
   cover: string | null;
   tone: string;
   joined: string;

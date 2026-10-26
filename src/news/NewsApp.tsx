@@ -21,7 +21,20 @@ import {
   NewsSearchView,
 } from "./NewsViews";
 import { CreateChannelSheet, WeatherSheet } from "./NewsSheets";
+import {
+  ArticleComposerSheet,
+  FlashComposerSheet,
+  ShortComposerSheet,
+} from "./NewsComposer";
 import { DEMO_ARTICLES, DEMO_CHANNELS, DEMO_FLASHES, DEMO_SHORTS } from "./news-data";
+import {
+  createLiveChannel,
+  loadNewsSnapshot,
+  newsErrorMessage,
+  saveNewsPreferences,
+  setNewsSubscription,
+  type NewsSnapshot,
+} from "./news-api";
 import {
   loadFollowed,
   loadMyChannels,
@@ -31,6 +44,7 @@ import {
   saveMyChannels,
   saveNewsPrefs,
 } from "./news-prefs";
+import { supabaseConfigured } from "../lib/supabase";
 import {
   categoryAccent,
   isFlashLive,
@@ -52,6 +66,9 @@ type SheetState =
   | { type: "weather" }
   | { type: "place" }
   | { type: "create" }
+  | { type: "flash"; channelId: string }
+  | { type: "short"; channelId: string }
+  | { type: "article"; channelId: string }
   | null;
 
 interface Props {
@@ -69,7 +86,10 @@ export function NewsApp({ session, onClose }: Props) {
   const [tab, setTab] = useState<NewsTab>("home");
   const [prefs, setPrefs] = useState<NewsPrefs>(loadNewsPrefs);
   const [followed, setFollowed] = useState<string[]>(loadFollowed);
-  const [myChannels, setMyChannels] = useState<NewsChannel[]>(loadMyChannels);
+  const [localChannels, setLocalChannels] = useState<NewsChannel[]>(loadMyChannels);
+  const [snapshot, setSnapshot] = useState<NewsSnapshot | null>(null);
+  const [live, setLive] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(supabaseConfigured);
 
   const [view, setView] = useState<ViewState>(null);
   const [sheet, setSheet] = useState<SheetState>(null);
@@ -85,11 +105,18 @@ export function NewsApp({ session, onClose }: Props) {
   const toastTimer = useRef<number | null>(null);
 
   const channels = useMemo(
-    () => [...myChannels, ...DEMO_CHANNELS],
-    [myChannels],
+    () => snapshot?.channels ?? [...localChannels, ...DEMO_CHANNELS],
+    [localChannels, snapshot],
+  );
+  const articles = snapshot?.articles ?? DEMO_ARTICLES;
+  const flashes = snapshot?.flashes ?? DEMO_FLASHES;
+  const shorts = snapshot?.shorts ?? DEMO_SHORTS;
+  const myChannels = useMemo(
+    () => (snapshot ? channels.filter((channel) => channel.isMine === true) : localChannels),
+    [channels, localChannels, snapshot],
   );
 
-  const liveFlashes = useMemo(() => DEMO_FLASHES.filter((flash) => isFlashLive(flash)), []);
+  const liveFlashes = useMemo(() => flashes.filter((flash) => isFlashLive(flash)), [flashes]);
 
   const place = useMemo(() => resolvePlace(prefs), [prefs]);
 
@@ -105,17 +132,53 @@ export function NewsApp({ session, onClose }: Props) {
     };
   }, []);
 
+  const loadLive = useCallback(async () => {
+    if (!supabaseConfigured) {
+      setInitialLoading(false);
+      return;
+    }
+
+    try {
+      const next = await loadNewsSnapshot(session);
+      setSnapshot(next);
+      setFollowed(next.followed);
+      if (next.prefs) {
+        setPrefs((previous) => ({ ...previous, ...next.prefs }));
+      }
+      setLive(true);
+    } catch {
+      // Missing schema or offline: keep the local-first preview edition.
+      setSnapshot(null);
+      setLive(false);
+    } finally {
+      setInitialLoading(false);
+    }
+  }, [session]);
+
+  useEffect(() => {
+    void loadLive();
+  }, [loadLive]);
+
   useEffect(() => {
     saveNewsPrefs(prefs);
-  }, [prefs]);
+
+    if (!live) return;
+    const timer = window.setTimeout(() => {
+      void saveNewsPreferences(session.id, prefs).catch(() => {
+        /* keep local preferences if the server is unavailable */
+      });
+    }, 600);
+
+    return () => window.clearTimeout(timer);
+  }, [live, prefs, session.id]);
 
   useEffect(() => {
     saveFollowed(followed);
   }, [followed]);
 
   useEffect(() => {
-    saveMyChannels(myChannels);
-  }, [myChannels]);
+    saveMyChannels(localChannels);
+  }, [localChannels]);
 
   const loadWeather = useCallback(async () => {
     setWeatherStatus("loading");
@@ -156,12 +219,27 @@ export function NewsApp({ session, onClose }: Props) {
     setSheet(null);
   };
 
-  const toggleFollow = (channelId: string) => {
+  const toggleFollow = async (channelId: string) => {
     const channel = channels.find((item) => item.id === channelId);
     const exists = followed.includes(channelId);
+    const nextFollow = !exists;
+
     setFollowed((previous) =>
       exists ? previous.filter((id) => id !== channelId) : [...previous, channelId],
     );
+
+    if (live) {
+      try {
+        await setNewsSubscription(channelId, session.id, nextFollow);
+      } catch (error) {
+        setFollowed((previous) =>
+          exists ? [...previous, channelId] : previous.filter((id) => id !== channelId),
+        );
+        notify(newsErrorMessage(error, "Could not update this follow."));
+        return;
+      }
+    }
+
     notify(
       exists
         ? `Unfollowed ${channel?.name ?? "channel"}`
@@ -170,10 +248,35 @@ export function NewsApp({ session, onClose }: Props) {
   };
 
   const createChannel = useCallback(
-    (input: CreateChannelInput): string | null => {
+    async (input: CreateChannelInput): Promise<string | null> => {
       const handle = slugifyHandle(input.handle);
       if (channels.some((channel) => channel.handle.toLowerCase() === handle)) {
         return "That handle is already in use. Choose another one.";
+      }
+
+      if (live) {
+        try {
+          const channel = await createLiveChannel({ ...input, handle }, session);
+          setSnapshot((previous) =>
+            previous
+              ? {
+                  ...previous,
+                  channels: [channel, ...previous.channels],
+                  followed: previous.followed.includes(channel.id)
+                    ? previous.followed
+                    : [...previous.followed, channel.id],
+                }
+              : previous,
+          );
+          setFollowed((previous) =>
+            previous.includes(channel.id) ? previous : [...previous, channel.id],
+          );
+          setTab("studio");
+          notify("Channel created. Your newsroom is ready.");
+          return null;
+        } catch (error) {
+          return newsErrorMessage(error, "Could not create this channel.");
+        }
       }
 
       const channel: NewsChannel = {
@@ -192,7 +295,7 @@ export function NewsApp({ session, onClose }: Props) {
         isMine: true,
       };
 
-      setMyChannels((previous) => [channel, ...previous]);
+      setLocalChannels((previous) => [channel, ...previous]);
       setFollowed((previous) =>
         previous.includes(channel.id) ? previous : [...previous, channel.id],
       );
@@ -200,7 +303,7 @@ export function NewsApp({ session, onClose }: Props) {
       notify("Channel created. Your newsroom is ready.");
       return null;
     },
-    [channels, notify, session.firstName, session.lastName, session.nickname],
+    [channels, live, notify, session],
   );
 
   const handleLocate = async () => {
@@ -233,17 +336,29 @@ export function NewsApp({ session, onClose }: Props) {
     }
   };
 
-  const article = view?.type === "article" ? DEMO_ARTICLES.find((item) => item.id === view.id) : null;
+  const openComposer = (type: "flash" | "short" | "article", channelId: string) => {
+    if (!live) {
+      notify("Publishing needs the live news schema. Preview channels stay read-only.");
+      return;
+    }
+    setSheet({ type, channelId });
+  };
+
+  const refreshAfterPublish = useCallback(() => {
+    void loadLive();
+  }, [loadLive]);
+
+  const article = view?.type === "article" ? articles.find((item) => item.id === view.id) : null;
   const articleChannel = article
-    ? channels.find((channel) => channel.id === article.channelId) ?? channels[0]
+    ? channels.find((channel) => channel.id === article.channelId) ?? null
     : null;
 
   const channelView =
     view?.type === "channel" ? channels.find((item) => item.id === view.id) ?? null : null;
 
-  const flash = view?.type === "flash" ? DEMO_FLASHES.find((item) => item.id === view.id) : null;
+  const flash = view?.type === "flash" ? flashes.find((item) => item.id === view.id) : null;
   const flashChannel = flash
-    ? channels.find((channel) => channel.id === flash.channelId) ?? channels[0]
+    ? channels.find((channel) => channel.id === flash.channelId) ?? null
     : null;
 
   return (
@@ -271,12 +386,14 @@ export function NewsApp({ session, onClose }: Props) {
           <NewsHome
             session={session}
             channels={channels}
-            articles={DEMO_ARTICLES}
+            articles={articles}
             flashes={liveFlashes}
             followed={followed}
             prefs={prefs}
             weather={weather}
             weatherStatus={weatherStatus}
+            live={live}
+            loading={initialLoading}
             onOpenArticle={(id) => setView({ type: "article", id })}
             onOpenFlash={(id) => setView({ type: "flash", id })}
             onOpenChannel={(id) => setView({ type: "channel", id })}
@@ -302,7 +419,7 @@ export function NewsApp({ session, onClose }: Props) {
         {tab === "shorts" ? (
           <NewsShorts
             channels={channels}
-            shorts={DEMO_SHORTS}
+            shorts={shorts}
             prefs={prefs}
             onOpenChannel={(id) => setView({ type: "channel", id })}
             notify={notify}
@@ -325,8 +442,13 @@ export function NewsApp({ session, onClose }: Props) {
           <NewsStudio
             session={session}
             myChannels={myChannels}
+            articles={articles}
+            flashes={flashes}
             onOpenChannel={(id) => setView({ type: "channel", id })}
             onOpenCreate={() => setSheet({ type: "create" })}
+            onComposeFlash={(id) => openComposer("flash", id)}
+            onComposeArticle={(id) => openComposer("article", id)}
+            onComposeShort={(id) => openComposer("short", id)}
             notify={notify}
           />
         ) : null}
@@ -339,10 +461,11 @@ export function NewsApp({ session, onClose }: Props) {
           key={article.id}
           article={article}
           channel={articleChannel}
-          related={DEMO_ARTICLES.filter(
-            (item) => item.channelId === article.channelId && item.id !== article.id,
-          ).slice(0, 3)}
+          related={articles
+            .filter((item) => item.channelId === article.channelId && item.id !== article.id)
+            .slice(0, 3)}
           followed={followed.includes(article.channelId)}
+          isOwn={articleChannel.isMine === true}
           onBack={() => setView(null)}
           onOpenChannel={(id) => setView({ type: "channel", id })}
           onOpenArticle={(id) => setView({ type: "article", id })}
@@ -355,8 +478,8 @@ export function NewsApp({ session, onClose }: Props) {
         <NewsChannelView
           key={channelView.id}
           channel={channelView}
-          articles={DEMO_ARTICLES}
-          flashes={DEMO_FLASHES}
+          articles={articles}
+          flashes={flashes}
           followed={followed.includes(channelView.id)}
           isOwn={channelView.isMine === true}
           onBack={() => setView(null)}
@@ -372,10 +495,11 @@ export function NewsApp({ session, onClose }: Props) {
           key={flash.id}
           flash={flash}
           channel={flashChannel}
-          relatedArticles={DEMO_ARTICLES.filter(
-            (item) => item.channelId === flash.channelId,
-          ).slice(0, 1)}
+          relatedArticles={articles
+            .filter((item) => item.channelId === flash.channelId)
+            .slice(0, 1)}
           followed={followed.includes(flash.channelId)}
+          isOwn={flashChannel.isMine === true}
           onBack={() => setView(null)}
           onOpenChannel={(id) => setView({ type: "channel", id })}
           onOpenArticle={(id) => setView({ type: "article", id })}
@@ -385,7 +509,7 @@ export function NewsApp({ session, onClose }: Props) {
 
       {searchOpen ? (
         <NewsSearchView
-          articles={DEMO_ARTICLES}
+          articles={articles}
           channels={channels}
           followed={followed}
           onBack={() => setSearchOpen(false)}
@@ -442,6 +566,45 @@ export function NewsApp({ session, onClose }: Props) {
           channels={channels}
           onClose={() => setSheet(null)}
           onCreate={createChannel}
+        />
+      ) : null}
+
+      {sheet?.type === "flash" ? (
+        <FlashComposerSheet
+          session={session}
+          channels={myChannels}
+          initialChannelId={sheet.channelId}
+          onClose={() => setSheet(null)}
+          onPublished={() => {
+            notify("Flash published for the next 24 hours.");
+            refreshAfterPublish();
+          }}
+        />
+      ) : null}
+
+      {sheet?.type === "short" ? (
+        <ShortComposerSheet
+          session={session}
+          channels={myChannels}
+          initialChannelId={sheet.channelId}
+          onClose={() => setSheet(null)}
+          onPublished={() => {
+            notify("News Short published to your channel.");
+            refreshAfterPublish();
+          }}
+        />
+      ) : null}
+
+      {sheet?.type === "article" ? (
+        <ArticleComposerSheet
+          session={session}
+          channels={myChannels}
+          initialChannelId={sheet.channelId}
+          onClose={() => setSheet(null)}
+          onPublished={() => {
+            notify("Article published to your channel.");
+            refreshAfterPublish();
+          }}
         />
       ) : null}
 

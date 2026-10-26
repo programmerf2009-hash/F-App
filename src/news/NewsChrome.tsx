@@ -153,7 +153,11 @@ export function ChannelAvatar({
       style={{ "--avatar-size": `${size}px`, "--avatar-tone": channel.tone } as CSSProperties}
       aria-hidden="true"
     >
-      {channel.cover ? <img src={channel.cover} alt="" loading="lazy" /> : <span>{initial}</span>}
+      {channel.avatar || channel.cover ? (
+        <img src={channel.avatar ?? channel.cover ?? ""} alt="" loading="lazy" />
+      ) : (
+        <span>{initial}</span>
+      )}
     </span>
   );
 }

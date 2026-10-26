@@ -38,6 +38,8 @@ interface Props {
   prefs: NewsPrefs;
   weather: WeatherNow | null;
   weatherStatus: "loading" | "ready" | "error";
+  live: boolean;
+  loading: boolean;
   onOpenArticle: (articleId: string) => void;
   onOpenFlash: (flashId: string) => void;
   onOpenChannel: (channelId: string) => void;
@@ -62,6 +64,8 @@ export function NewsHome({
   prefs,
   weather,
   weatherStatus,
+  live,
+  loading,
   onOpenArticle,
   onOpenFlash,
   onOpenChannel,
@@ -152,7 +156,9 @@ export function NewsHome({
       <div className="news-shell">
         <section className="news-home__intro" aria-labelledby="news-greeting">
           <div className="news-home__greeting">
-            <p className="news-kicker">{dateLabel} · Preview edition</p>
+            <p className="news-kicker">
+              {dateLabel} · {loading ? "Loading edition" : live ? "Live edition" : "Preview edition"}
+            </p>
             <h1 id="news-greeting">
               Good morning,
               <br />

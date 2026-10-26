@@ -48,6 +48,7 @@ interface ArticleViewProps {
   channel: NewsChannel;
   related: NewsArticle[];
   followed: boolean;
+  isOwn: boolean;
   onBack: () => void;
   onOpenChannel: (channelId: string) => void;
   onOpenArticle: (articleId: string) => void;
@@ -60,6 +61,7 @@ export function NewsArticleView({
   channel,
   related,
   followed,
+  isOwn,
   onBack,
   onOpenChannel,
   onOpenArticle,
@@ -120,11 +122,15 @@ export function NewsArticleView({
                 </span>
               </button>
 
-              <FollowButton
-                following={followed}
-                onToggle={() => onToggleFollow(channel.id)}
-                compact
-              />
+              {isOwn ? (
+                <span className="news-reader__own">Your channel</span>
+              ) : (
+                <FollowButton
+                  following={followed}
+                  onToggle={() => onToggleFollow(channel.id)}
+                  compact
+                />
+              )}
             </div>
           </header>
 
@@ -356,11 +362,12 @@ export function NewsChannelView({
             </div>
 
             <div className="news-channel-view__actions">
-              <FollowButton
-                following={followed}
-                onToggle={() => onToggleFollow(channel.id)}
-              />
-              {isOwn ? (
+              {!isOwn ? (
+                <FollowButton
+                  following={followed}
+                  onToggle={() => onToggleFollow(channel.id)}
+                />
+              ) : (
                 <button
                   type="button"
                   className="news-button news-button--ghost"
@@ -368,7 +375,7 @@ export function NewsChannelView({
                 >
                   Manage
                 </button>
-              ) : null}
+              )}
             </div>
           </header>
 
@@ -580,6 +587,7 @@ interface FlashViewProps {
   channel: NewsChannel;
   relatedArticles: NewsArticle[];
   followed: boolean;
+  isOwn: boolean;
   onBack: () => void;
   onOpenChannel: (channelId: string) => void;
   onOpenArticle: (articleId: string) => void;
@@ -591,6 +599,7 @@ export function NewsFlashView({
   channel,
   relatedArticles,
   followed,
+  isOwn,
   onBack,
   onOpenChannel,
   onOpenArticle,
@@ -683,12 +692,16 @@ export function NewsFlashView({
                 <small>@{channel.handle}</small>
               </span>
             </button>
-            <FollowButton
-              following={followed}
-              onToggle={() => onToggleFollow(channel.id)}
-              compact
-              dark
-            />
+            {isOwn ? (
+              <span className="news-flash-view__own">Your channel</span>
+            ) : (
+              <FollowButton
+                following={followed}
+                onToggle={() => onToggleFollow(channel.id)}
+                compact
+                dark
+              />
+            )}
           </div>
 
           <p className="news-flash-view__note">
@@ -914,11 +927,15 @@ export function NewsSearchView({
                             </small>
                           </span>
                         </button>
-                        <FollowButton
-                          following={followed.includes(channel.id)}
-                          onToggle={() => onToggleFollow(channel.id)}
-                          compact
-                        />
+                        {channel.isMine ? (
+                          <span className="news-search-channel__own">Your channel</span>
+                        ) : (
+                          <FollowButton
+                            following={followed.includes(channel.id)}
+                            onToggle={() => onToggleFollow(channel.id)}
+                            compact
+                          />
+                        )}
                       </div>
                     ))}
                   </div>
