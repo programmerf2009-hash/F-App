@@ -1,19 +1,30 @@
+import { useEffect, useState } from "react";
 import {
   ArrowUpRight,
   BarChart3,
   BadgeCheck,
+  Check,
   ChevronRight,
   Clapperboard,
   FileText,
   PenLine,
   Plus,
   Radio,
+  Settings2,
   Sparkles,
   Users,
   Video,
+  X,
 } from "lucide-react";
 import type { Session } from "../lib/auth";
 import { ChannelAvatar, NewsSectionHead, VerifiedBadge } from "./NewsChrome";
+import {
+  acceptChannelTransfer,
+  declineChannelTransfer,
+  loadIncomingTransfers,
+  newsErrorMessage,
+  type NewsTransfer,
+} from "./news-api";
 import {
   formatCount,
   isFlashLive,
@@ -22,37 +33,91 @@ import {
   type NewsFlash,
 } from "./news-types";
 
+type ManageTab = "profile" | "trust" | "ownership";
+
 interface Props {
   session: Session;
+  channels: NewsChannel[];
   myChannels: NewsChannel[];
   articles: NewsArticle[];
   flashes: NewsFlash[];
   onOpenChannel: (channelId: string) => void;
   onOpenCreate: () => void;
+  onManageChannel: (channelId: string, tab?: ManageTab) => void;
   onComposeFlash: (channelId: string) => void;
   onComposeArticle: (channelId: string) => void;
   onComposeShort: (channelId: string) => void;
+  onRefresh: () => void;
   notify: (message: string) => void;
+}
+
+function transferDeadline(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "soon";
+  return date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
 export function NewsStudio({
   session,
+  channels,
   myChannels,
   articles,
   flashes,
   onOpenChannel,
   onOpenCreate,
+  onManageChannel,
   onComposeFlash,
   onComposeArticle,
   onComposeShort,
+  onRefresh,
   notify,
 }: Props) {
+  const [transfers, setTransfers] = useState<NewsTransfer[]>([]);
+  const [transferBusy, setTransferBusy] = useState<string | null>(null);
+  const [transferError, setTransferError] = useState<string | null>(null);
+
   const totalSubscribers = myChannels.reduce((sum, channel) => sum + channel.subscribers, 0);
   const channelIds = new Set(myChannels.map((channel) => channel.id));
   const postCount = articles.filter((article) => channelIds.has(article.channelId)).length;
   const liveFlashCount = flashes.filter(
     (flash) => channelIds.has(flash.channelId) && isFlashLive(flash),
   ).length;
+  const ownedChannel = myChannels.find((channel) => channel.isOwner);
+
+  useEffect(() => {
+    let active = true;
+    void loadIncomingTransfers(session.id)
+      .then((next) => {
+        if (active) setTransfers(next);
+      })
+      .catch(() => {
+        /* Preview mode has no transfer table. */
+      });
+    return () => {
+      active = false;
+    };
+  }, [session.id]);
+
+  const answerTransfer = async (transfer: NewsTransfer, accept: boolean) => {
+    if (transferBusy) return;
+    setTransferBusy(transfer.id);
+    setTransferError(null);
+    try {
+      if (accept) {
+        await acceptChannelTransfer(transfer.id);
+        notify("Channel transfer accepted. The newsroom is now in your Studio.");
+        onRefresh();
+      } else {
+        await declineChannelTransfer(transfer.id);
+        notify("Transfer declined. The channel stays with its current owner.");
+      }
+      setTransfers((previous) => previous.filter((item) => item.id !== transfer.id));
+    } catch (error) {
+      setTransferError(newsErrorMessage(error, "Could not answer this transfer."));
+    } finally {
+      setTransferBusy(null);
+    }
+  };
 
   return (
     <main className="news-main news-studio">
@@ -68,6 +133,62 @@ export function NewsStudio({
             New channel
           </button>
         </header>
+
+        {transfers.length ? (
+          <section className="news-block news-studio-transfers" aria-label="Ownership transfer requests">
+            <NewsSectionHead
+              eyebrow="Waiting for you"
+              title="Ownership transfer requests"
+            />
+            <div className="news-studio-transfer-list">
+              {transfers.map((transfer) => {
+                const source = channels.find((item) => item.id === transfer.channelId);
+                const channelName = source?.name ?? transfer.channelName ?? "A news channel";
+                const channelHandle = source?.handle ?? transfer.channelHandle;
+                const busy = transferBusy === transfer.id;
+                return (
+                  <article className="news-studio-transfer" key={transfer.id}>
+                    <div className="news-studio-transfer__copy">
+                      <strong>{channelName}</strong>
+                      <p>
+                        {channelHandle ? `@${channelHandle} · ` : ""}
+                        The current owner wants to hand this channel to you. Accepting keeps
+                        every post, subscriber and the handle.
+                      </p>
+                      {transfer.note ? <small>“{transfer.note}”</small> : null}
+                      <span>Respond by {transferDeadline(transfer.expiresAt)}</span>
+                    </div>
+                    <div className="news-studio-transfer__actions">
+                      <button
+                        type="button"
+                        className="news-button news-button--ghost"
+                        disabled={busy}
+                        onClick={() => void answerTransfer(transfer, false)}
+                      >
+                        <X size={14} strokeWidth={2.3} />
+                        Decline
+                      </button>
+                      <button
+                        type="button"
+                        className="news-button news-button--blue"
+                        disabled={busy}
+                        onClick={() => void answerTransfer(transfer, true)}
+                      >
+                        <Check size={14} strokeWidth={2.3} />
+                        {busy ? "Working..." : "Accept channel"}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+            {transferError ? (
+              <p className="news-form-error" role="alert">
+                {transferError}
+              </p>
+            ) : null}
+          </section>
+        ) : null}
 
         {myChannels.length > 0 ? (
           <>
@@ -161,6 +282,14 @@ export function NewsStudio({
                         <FileText size={15} strokeWidth={2.2} />
                         Write article
                       </button>
+                      <button
+                        type="button"
+                        className="news-button news-button--ghost"
+                        onClick={() => onManageChannel(channel.id)}
+                      >
+                        <Settings2 size={15} strokeWidth={2.2} />
+                        Manage
+                      </button>
                     </div>
                   </article>
                 ))}
@@ -207,7 +336,15 @@ export function NewsStudio({
             <button
               type="button"
               className="news-studio-tile"
-              onClick={() => notify("Verification applications open in the next release.")}
+              onClick={() => {
+                if (ownedChannel) {
+                  onManageChannel(ownedChannel.id, "trust");
+                } else if (myChannels.length) {
+                  notify("Only the channel owner can request a certificate.");
+                } else {
+                  onOpenCreate();
+                }
+              }}
             >
               <span className="news-studio-tile__icon">
                 <BadgeCheck size={20} strokeWidth={1.9} />
@@ -222,9 +359,15 @@ export function NewsStudio({
             <button
               type="button"
               className="news-studio-tile"
-              onClick={() =>
-                notify("Ownership transfer arrives with the server schema: recipient approval, 2FA and a 7-day hold.")
-              }
+              onClick={() => {
+                if (ownedChannel) {
+                  onManageChannel(ownedChannel.id, "ownership");
+                } else if (myChannels.length) {
+                  notify("Only the channel owner can transfer this channel.");
+                } else {
+                  onOpenCreate();
+                }
+              }}
             >
               <span className="news-studio-tile__icon">
                 <Users size={20} strokeWidth={1.9} />

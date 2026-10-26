@@ -118,6 +118,18 @@ async function uploadRaw(
   return { url, path };
 }
 
+export async function uploadChannelArt(
+  channelId: string,
+  file: File,
+): Promise<string> {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Choose a JPG, PNG or WebP image for the channel.");
+  }
+  const prepared = await fileToPostPhoto(file);
+  const raw = await uploadRaw(channelId, prepared.blob, "jpg", "image/jpeg");
+  return raw.url;
+}
+
 async function uploadRegistered(
   session: Session,
   channelId: string,

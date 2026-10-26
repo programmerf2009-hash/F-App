@@ -21,6 +21,7 @@ import {
   NewsSearchView,
 } from "./NewsViews";
 import { CreateChannelSheet, WeatherSheet } from "./NewsSheets";
+import { ManageChannelSheet } from "./NewsManage";
 import {
   ArticleComposerSheet,
   FlashComposerSheet,
@@ -69,6 +70,11 @@ type SheetState =
   | { type: "flash"; channelId: string }
   | { type: "short"; channelId: string }
   | { type: "article"; channelId: string }
+  | {
+      type: "manage";
+      channelId: string;
+      tab?: "profile" | "trust" | "ownership";
+    }
   | null;
 
 interface Props {
@@ -293,6 +299,7 @@ export function NewsApp({ session, onClose }: Props) {
         tone: categoryAccent(input.category),
         joined: String(new Date().getFullYear()),
         isMine: true,
+        isOwner: true,
       };
 
       setLocalChannels((previous) => [channel, ...previous]);
@@ -342,6 +349,17 @@ export function NewsApp({ session, onClose }: Props) {
       return;
     }
     setSheet({ type, channelId });
+  };
+
+  const openManage = (
+    channelId: string,
+    tab: "profile" | "trust" | "ownership" = "profile",
+  ) => {
+    if (!live) {
+      notify("Channel settings need the live news schema.");
+      return;
+    }
+    setSheet({ type: "manage", channelId, tab });
   };
 
   const refreshAfterPublish = useCallback(() => {
@@ -441,14 +459,17 @@ export function NewsApp({ session, onClose }: Props) {
         {tab === "studio" ? (
           <NewsStudio
             session={session}
+            channels={channels}
             myChannels={myChannels}
             articles={articles}
             flashes={flashes}
             onOpenChannel={(id) => setView({ type: "channel", id })}
             onOpenCreate={() => setSheet({ type: "create" })}
+            onManageChannel={openManage}
             onComposeFlash={(id) => openComposer("flash", id)}
             onComposeArticle={(id) => openComposer("article", id)}
             onComposeShort={(id) => openComposer("short", id)}
+            onRefresh={refreshAfterPublish}
             notify={notify}
           />
         ) : null}
@@ -566,6 +587,18 @@ export function NewsApp({ session, onClose }: Props) {
           channels={channels}
           onClose={() => setSheet(null)}
           onCreate={createChannel}
+        />
+      ) : null}
+
+      {sheet?.type === "manage" ? (
+        <ManageChannelSheet
+          session={session}
+          channels={myChannels}
+          initialChannelId={sheet.channelId}
+          initialTab={sheet.tab}
+          onClose={() => setSheet(null)}
+          onRefresh={refreshAfterPublish}
+          notify={notify}
         />
       ) : null}
 

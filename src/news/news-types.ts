@@ -44,8 +44,10 @@ export interface NewsChannel {
   cover: string | null;
   tone: string;
   joined: string;
-  /** True for channels created on this device in Studio. */
+  /** True when this account owns or can edit the channel in Studio. */
   isMine?: boolean;
+  /** True only for the account that owns the channel and can transfer it. */
+  isOwner?: boolean;
 }
 
 export type ArticleBlock =

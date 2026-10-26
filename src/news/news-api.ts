@@ -6,7 +6,7 @@
    opened before the schema is deployed.
    ========================================================================== */
 
-import type { Session } from "../lib/auth";
+import { avatarUrl, type Session } from "../lib/auth";
 import { supabase, supabaseConfigured } from "../lib/supabase";
 import { NEWS_IMAGES } from "./news-data";
 import {
@@ -34,6 +34,34 @@ export interface NewsSnapshot {
   shorts: NewsShort[];
   followed: string[];
   prefs: Partial<NewsPrefs> | null;
+}
+
+export interface NewsTransfer {
+  id: string;
+  channelId: string;
+  channelName?: string;
+  channelHandle?: string;
+  fromOwner: string;
+  toUser: string;
+  status: string;
+  note: string;
+  requestedAt: string;
+  expiresAt: string;
+}
+
+export interface VerificationStatus {
+  id: string;
+  level: "verified" | "trusted";
+  status: "pending" | "approved" | "rejected" | "revoked";
+  note: string | null;
+  createdAt: string;
+}
+
+export interface TransferRecipient {
+  id: string;
+  nickname: string;
+  name: string;
+  avatar: string | null;
 }
 
 interface ChannelRow {
@@ -130,6 +158,39 @@ interface PreferenceRow {
   categories: string[] | null;
 }
 
+interface MembershipRow {
+  channel_id: string;
+  role: string;
+}
+
+interface TransferRow {
+  id: string;
+  channel_id: string;
+  from_owner: string;
+  to_user: string;
+  status: string;
+  note: string;
+  requested_at: string;
+  expires_at: string;
+  channel?: { name: string; handle: string } | { name: string; handle: string }[] | null;
+}
+
+interface VerificationRow {
+  id: string;
+  level: string;
+  status: string;
+  note: string | null;
+  created_at: string;
+}
+
+interface ProfileSearchRow {
+  id: string;
+  nickname: string;
+  first_name: string;
+  last_name: string;
+  avatar_path: string | null;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
@@ -221,10 +282,14 @@ function mapOwnerName(owner: OwnerRow | undefined, handle: string): string {
 /* Mapping                                                                     */
 /* -------------------------------------------------------------------------- */
 
+const CHANNEL_COLUMNS =
+  "id, owner_id, name, handle, description, category, avatar_url, cover_url, verified, subscriber_count, created_at";
+
 function mapChannel(
   row: ChannelRow,
   owner: OwnerRow | undefined,
   session: Session,
+  member = false,
 ): NewsChannel {
   const category = asCategory(row.category);
   const ownerName =
@@ -239,14 +304,16 @@ function mapChannel(
     description: row.description,
     category,
     ownerName,
-    ownerNickname: owner?.nickname ?? row.handle,
+    ownerNickname:
+      row.owner_id === session.id ? session.nickname : owner?.nickname ?? row.handle,
     verified: row.verified,
     subscribers: Number(row.subscriber_count ?? 0),
     avatar: row.avatar_url,
     cover: row.cover_url,
     tone: categoryAccent(category),
     joined: String(new Date(row.created_at).getFullYear()),
-    isMine: row.owner_id === session.id,
+    isMine: row.owner_id === session.id || member,
+    isOwner: row.owner_id === session.id,
   };
 }
 
@@ -328,6 +395,37 @@ function mapPreferences(row: PreferenceRow): Partial<NewsPrefs> {
   };
 }
 
+function mapTransfer(row: TransferRow): NewsTransfer {
+  const channel = Array.isArray(row.channel) ? row.channel[0] : row.channel;
+  return {
+    id: row.id,
+    channelId: row.channel_id,
+    channelName: channel?.name,
+    channelHandle: channel?.handle,
+    fromOwner: row.from_owner,
+    toUser: row.to_user,
+    status: row.status,
+    note: row.note,
+    requestedAt: row.requested_at,
+    expiresAt: row.expires_at,
+  };
+}
+
+function mapVerification(row: VerificationRow): VerificationStatus {
+  return {
+    id: row.id,
+    level: row.level === "trusted" ? "trusted" : "verified",
+    status:
+      row.status === "approved" ||
+      row.status === "rejected" ||
+      row.status === "revoked"
+        ? row.status
+        : "pending",
+    note: row.note,
+    createdAt: row.created_at,
+  };
+}
+
 /* -------------------------------------------------------------------------- */
 /* Reads                                                                      */
 /* -------------------------------------------------------------------------- */
@@ -355,52 +453,61 @@ export function newsErrorMessage(error: unknown, fallback: string): string {
 export async function loadNewsSnapshot(session: Session): Promise<NewsSnapshot> {
   if (!supabaseConfigured) throw new Error("Supabase is not configured.");
 
-  const [channelsResult, articlesResult, flashesResult, shortsResult, followsResult, prefsResult] =
-    await Promise.all([
-      supabase
-        .from("news_channels")
-        .select(
-          "id, owner_id, name, handle, description, category, avatar_url, cover_url, verified, subscriber_count, created_at",
-        )
-        .is("archived_at", null)
-        .order("subscriber_count", { ascending: false })
-        .limit(80),
-      supabase
-        .from("news_articles")
-        .select(
-          "id, channel_id, title, summary, category, region, tags, cover_url, urgent, read_minutes, published_at",
-        )
-        .eq("status", "published")
-        .order("published_at", { ascending: false })
-        .limit(80),
-      supabase
-        .from("news_flashes")
-        .select(
-          "id, channel_id, title, category, video_media_id, video_url, poster_url, duration_seconds, views, published_at, expires_at",
-        )
-        .in("status", ["published", "archived"])
-        .order("published_at", { ascending: false })
-        .limit(60),
-      supabase
-        .from("news_shorts")
-        .select(
-          "id, channel_id, caption, video_media_id, video_url, poster_url, duration_seconds, like_count, comment_count, published_at",
-        )
-        .eq("status", "published")
-        .order("published_at", { ascending: false })
-        .limit(30),
-      supabase
-        .from("news_subscriptions")
-        .select("channel_id")
-        .eq("subscriber_id", session.id),
-      supabase
-        .from("news_preferences")
-        .select(
-          "weather_label, weather_region, weather_units, weather_alerts, breaking_alerts, autoplay_video, categories",
-        )
-        .eq("user_id", session.id)
-        .maybeSingle<PreferenceRow>(),
-    ]);
+  const [
+    channelsResult,
+    articlesResult,
+    flashesResult,
+    shortsResult,
+    followsResult,
+    prefsResult,
+    membershipsResult,
+  ] = await Promise.all([
+    supabase
+      .from("news_channels")
+      .select(CHANNEL_COLUMNS)
+      .is("archived_at", null)
+      .order("subscriber_count", { ascending: false })
+      .limit(80),
+    supabase
+      .from("news_articles")
+      .select(
+        "id, channel_id, title, summary, category, region, tags, cover_url, urgent, read_minutes, published_at",
+      )
+      .eq("status", "published")
+      .order("published_at", { ascending: false })
+      .limit(80),
+    supabase
+      .from("news_flashes")
+      .select(
+        "id, channel_id, title, category, video_media_id, video_url, poster_url, duration_seconds, views, published_at, expires_at",
+      )
+      .in("status", ["published", "archived"])
+      .order("published_at", { ascending: false })
+      .limit(60),
+    supabase
+      .from("news_shorts")
+      .select(
+        "id, channel_id, caption, video_media_id, video_url, poster_url, duration_seconds, like_count, comment_count, published_at",
+      )
+      .eq("status", "published")
+      .order("published_at", { ascending: false })
+      .limit(30),
+    supabase
+      .from("news_subscriptions")
+      .select("channel_id")
+      .eq("subscriber_id", session.id),
+    supabase
+      .from("news_preferences")
+      .select(
+        "weather_label, weather_region, weather_units, weather_alerts, breaking_alerts, autoplay_video, categories",
+      )
+      .eq("user_id", session.id)
+      .maybeSingle<PreferenceRow>(),
+    supabase
+      .from("news_channel_members")
+      .select("channel_id, role")
+      .eq("user_id", session.id),
+  ]);
 
   const firstError =
     channelsResult.error ??
@@ -408,13 +515,31 @@ export async function loadNewsSnapshot(session: Session): Promise<NewsSnapshot> 
     flashesResult.error ??
     shortsResult.error ??
     followsResult.error ??
-    prefsResult.error;
+    prefsResult.error ??
+    membershipsResult.error;
   if (firstError) throw new Error(firstError.message);
 
   const channelRows = (channelsResult.data ?? []) as ChannelRow[];
   const articleRows = (articlesResult.data ?? []) as ArticleRow[];
   const flashRows = (flashesResult.data ?? []) as FlashRow[];
   const shortRows = (shortsResult.data ?? []) as ShortRow[];
+  const membershipRows = (membershipsResult.data ?? []) as MembershipRow[];
+  const memberIds = new Set(membershipRows.map((row) => row.channel_id));
+
+  // The public directory is ordered by reach. A new or small channel can fall
+  // outside that top slice, so always append the channels this account can edit.
+  const missingChannelIds = [...memberIds].filter(
+    (id) => !channelRows.some((row) => row.id === id),
+  );
+  if (missingChannelIds.length) {
+    const { data, error } = await supabase
+      .from("news_channels")
+      .select(CHANNEL_COLUMNS)
+      .in("id", missingChannelIds)
+      .is("archived_at", null);
+    if (error) throw new Error(error.message);
+    channelRows.push(...((data ?? []) as ChannelRow[]));
+  }
 
   const ownerByChannel = new Map<string, OwnerRow>();
   const channelIds = channelRows.map((row) => row.id);
@@ -461,7 +586,7 @@ export async function loadNewsSnapshot(session: Session): Promise<NewsSnapshot> 
   }
 
   const channels = channelRows.map((row) =>
-    mapChannel(row, ownerByChannel.get(row.id), session),
+    mapChannel(row, ownerByChannel.get(row.id), session, memberIds.has(row.id)),
   );
   const channelIdSet = new Set(channels.map((channel) => channel.id));
   const blocksByArticle = new Map<string, ArticleBlockRow[]>();
@@ -562,9 +687,7 @@ export async function createLiveChannel(
       description: input.description.trim() || "A new F News channel.",
       category,
     })
-    .select(
-      "id, owner_id, name, handle, description, category, avatar_url, cover_url, verified, subscriber_count, created_at",
-    )
+    .select(CHANNEL_COLUMNS)
     .single<ChannelRow>();
 
   if (error) throw new Error(error.message);
@@ -577,5 +700,139 @@ export async function createLiveChannel(
       { onConflict: "channel_id,subscriber_id", ignoreDuplicates: true },
     );
 
-  return mapChannel(data, undefined, session);
+  return mapChannel(data, undefined, session, true);
+}
+
+export async function updateLiveChannel(
+  channelId: string,
+  input: {
+    name: string;
+    description: string;
+    category: NewsCategory;
+    avatarUrl?: string | null;
+    coverUrl?: string | null;
+  },
+): Promise<void> {
+  const payload: Record<string, string | null> = {
+    name: input.name.trim(),
+    description: input.description.trim() || "An F News channel.",
+    category: input.category,
+  };
+  if (input.avatarUrl !== undefined) payload.avatar_url = input.avatarUrl;
+  if (input.coverUrl !== undefined) payload.cover_url = input.coverUrl;
+
+  const { error } = await supabase
+    .from("news_channels")
+    .update(payload)
+    .eq("id", channelId);
+  if (error) throw new Error(error.message);
+}
+
+export async function loadChannelVerification(
+  channelId: string,
+): Promise<VerificationStatus | null> {
+  const { data, error } = await supabase
+    .from("news_channel_verifications")
+    .select("id, level, status, note, created_at")
+    .eq("channel_id", channelId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) throw new Error(error.message);
+  const row = (data ?? [])[0] as VerificationRow | undefined;
+  return row ? mapVerification(row) : null;
+}
+
+export async function requestChannelVerification(
+  channelId: string,
+  userId: string,
+  level: "verified" | "trusted",
+  evidence: string,
+): Promise<void> {
+  const { error } = await supabase.from("news_channel_verifications").insert({
+    channel_id: channelId,
+    requested_by: userId,
+    level,
+    status: "pending",
+    evidence: evidence.trim().slice(0, 1200),
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function loadIncomingTransfers(userId: string): Promise<NewsTransfer[]> {
+  const { data, error } = await supabase
+    .from("news_channel_transfers")
+    .select(
+      "id, channel_id, from_owner, to_user, status, note, requested_at, expires_at, channel:news_channels(name, handle)",
+    )
+    .eq("to_user", userId)
+    .eq("status", "pending")
+    .order("requested_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as TransferRow[]).map(mapTransfer);
+}
+
+export async function loadPendingTransfer(
+  channelId: string,
+): Promise<NewsTransfer | null> {
+  const { data, error } = await supabase
+    .from("news_channel_transfers")
+    .select(
+      "id, channel_id, from_owner, to_user, status, note, requested_at, expires_at, channel:news_channels(name, handle)",
+    )
+    .eq("channel_id", channelId)
+    .eq("status", "pending")
+    .order("requested_at", { ascending: false })
+    .limit(1);
+  if (error) throw new Error(error.message);
+  const row = (data ?? [])[0] as TransferRow | undefined;
+  return row ? mapTransfer(row) : null;
+}
+
+export async function searchTransferRecipients(
+  query: string,
+  excludeUserId: string,
+): Promise<TransferRecipient[]> {
+  const term = query.trim();
+  if (term.length < 2) return [];
+
+  const { data, error } = await supabase.rpc("search_profiles", { p_query: term });
+  if (error) throw new Error(error.message);
+
+  return ((data ?? []) as ProfileSearchRow[])
+    .filter((row) => row.id !== excludeUserId)
+    .slice(0, 8)
+    .map((row) => ({
+      id: row.id,
+      nickname: row.nickname,
+      name: `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() || row.nickname,
+      avatar: avatarUrl(row.avatar_path),
+    }));
+}
+
+export async function requestChannelTransfer(
+  channelId: string,
+  toUser: string,
+  note: string,
+): Promise<string> {
+  const { data, error } = await supabase.rpc("news_request_channel_transfer", {
+    p_channel_id: channelId,
+    p_to_user: toUser,
+    p_note: note.trim().slice(0, 500),
+  });
+  if (error) throw new Error(error.message);
+  return String(data);
+}
+
+export async function acceptChannelTransfer(transferId: string): Promise<void> {
+  const { error } = await supabase.rpc("news_accept_channel_transfer", {
+    p_transfer_id: transferId,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function declineChannelTransfer(transferId: string): Promise<void> {
+  const { error } = await supabase.rpc("news_decline_channel_transfer", {
+    p_transfer_id: transferId,
+  });
+  if (error) throw new Error(error.message);
 }
