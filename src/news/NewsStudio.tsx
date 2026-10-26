@@ -211,9 +211,9 @@ export function NewsStudio({
               </div>
             </section>
 
-            <section className="news-block" aria-labelledby="studio-channels">
+            <section className="news-block" aria-label="Your channels">
               <NewsSectionHead
-                eyebrow="Owned by you"
+                eyebrow="Your newsroom access"
                 title="Your channels"
                 action={
                   <button type="button" className="news-text-link" onClick={onOpenCreate}>
@@ -255,6 +255,12 @@ export function NewsStudio({
                         <BadgeCheck size={14} strokeWidth={2.1} />
                         {channel.verified ? "Verified" : "Not verified"}
                       </span>
+                      {!channel.isOwner ? (
+                        <span>
+                          <PenLine size={14} strokeWidth={2.1} />
+                          Editor access
+                        </span>
+                      ) : null}
                     </div>
 
                     <div className="news-studio-channel__actions">
