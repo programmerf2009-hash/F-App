@@ -35,13 +35,15 @@ export function NewsShorts({ channels, shorts, prefs, onOpenChannel, notify }: P
       const video = videoRefs.current.get(short.id);
       if (!video) return;
 
+      video.muted = muted;
+
       if (short.id === playingId) {
         void video.play().catch(() => setPlayingId(null));
       } else {
         video.pause();
       }
     });
-  }, [playingId, shorts]);
+  }, [playingId, shorts, muted]);
 
   const channelById = useMemo(
     () => new Map(channels.map((channel) => [channel.id, channel])),

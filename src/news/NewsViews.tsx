@@ -643,6 +643,12 @@ export function NewsFlashView({
     }
   }, [playing, flash.videoUrl]);
 
+  useEffect(() => {
+    // React does not reliably sync the muted property after the first paint.
+    const video = videoRef.current;
+    if (video) video.muted = muted;
+  }, [muted, flash.videoUrl]);
+
   return (
     <div className="news-overlay news-flash-view">
       <div className="news-flash-view__top">
