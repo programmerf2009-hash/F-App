@@ -51,6 +51,7 @@ import {
   isFlashLive,
   slugifyHandle,
   type CreateChannelInput,
+  type NewsArticle,
   type NewsChannel,
   type NewsPrefs,
   type NewsTab,
@@ -82,6 +83,12 @@ interface Props {
   onClose: () => void;
 }
 
+function appendUnique<T extends { id: string }>(base: T[], incoming: T[]): T[] {
+  if (!incoming.length) return base;
+  const seen = new Set(base.map((item) => item.id));
+  return [...base, ...incoming.filter((item) => !seen.has(item.id))];
+}
+
 /**
  * F News & Weather — a fixed-identity product inside F App.
  *
@@ -94,6 +101,9 @@ export function NewsApp({ session, onClose }: Props) {
   const [followed, setFollowed] = useState<string[]>(loadFollowed);
   const [localChannels, setLocalChannels] = useState<NewsChannel[]>(loadMyChannels);
   const [snapshot, setSnapshot] = useState<NewsSnapshot | null>(null);
+  const [extraArticles, setExtraArticles] = useState<NewsArticle[]>([]);
+  const [extraChannels, setExtraChannels] = useState<NewsChannel[]>([]);
+  const [dataVersion, setDataVersion] = useState(0);
   const [live, setLive] = useState(false);
   const [initialLoading, setInitialLoading] = useState(supabaseConfigured);
 
@@ -110,11 +120,18 @@ export function NewsApp({ session, onClose }: Props) {
 
   const toastTimer = useRef<number | null>(null);
 
-  const channels = useMemo(
+  const baseChannels = useMemo(
     () => snapshot?.channels ?? [...localChannels, ...DEMO_CHANNELS],
     [localChannels, snapshot],
   );
-  const articles = snapshot?.articles ?? DEMO_ARTICLES;
+  const channels = useMemo(
+    () => appendUnique(baseChannels, extraChannels),
+    [baseChannels, extraChannels],
+  );
+  const articles = useMemo(
+    () => appendUnique(snapshot?.articles ?? DEMO_ARTICLES, extraArticles),
+    [extraArticles, snapshot],
+  );
   const flashes = snapshot?.flashes ?? DEMO_FLASHES;
   const shorts = snapshot?.shorts ?? DEMO_SHORTS;
   const myChannels = useMemo(
@@ -131,6 +148,19 @@ export function NewsApp({ session, onClose }: Props) {
     if (toastTimer.current) window.clearTimeout(toastTimer.current);
     toastTimer.current = window.setTimeout(() => setToast(null), 2600);
   }, []);
+
+  /** Feed and search pages can introduce channels outside the top snapshot. */
+  const rememberContent = useCallback(
+    (nextArticles: NewsArticle[], nextChannels: NewsChannel[]) => {
+      if (nextArticles.length) {
+        setExtraArticles((previous) => appendUnique(previous, nextArticles));
+      }
+      if (nextChannels.length) {
+        setExtraChannels((previous) => appendUnique(previous, nextChannels));
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     return () => {
@@ -152,6 +182,7 @@ export function NewsApp({ session, onClose }: Props) {
         setPrefs((previous) => ({ ...previous, ...next.prefs }));
       }
       setLive(true);
+      setDataVersion((value) => value + 1);
     } catch {
       // Missing schema or offline: keep the local-first preview edition.
       setSnapshot(null);
@@ -237,6 +268,9 @@ export function NewsApp({ session, onClose }: Props) {
     if (live) {
       try {
         await setNewsSubscription(channelId, session.id, nextFollow);
+        // The following feed is server-filtered, so refresh only after the
+        // subscription write has landed.
+        setDataVersion((value) => value + 1);
       } catch (error) {
         setFollowed((previous) =>
           exists ? [...previous, channelId] : previous.filter((id) => id !== channelId),
@@ -412,6 +446,8 @@ export function NewsApp({ session, onClose }: Props) {
             weatherStatus={weatherStatus}
             live={live}
             loading={initialLoading}
+            refreshKey={dataVersion}
+            onArticlesLoaded={rememberContent}
             onOpenArticle={(id) => setView({ type: "article", id })}
             onOpenFlash={(id) => setView({ type: "flash", id })}
             onOpenChannel={(id) => setView({ type: "channel", id })}
@@ -530,9 +566,12 @@ export function NewsApp({ session, onClose }: Props) {
 
       {searchOpen ? (
         <NewsSearchView
+          session={session}
           articles={articles}
           channels={channels}
           followed={followed}
+          live={live}
+          onArticlesLoaded={rememberContent}
           onBack={() => setSearchOpen(false)}
           onOpenArticle={(id) => {
             setSearchOpen(false);

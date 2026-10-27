@@ -1,9 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronRight,
   CloudSun,
+  LoaderCircle,
   MapPin,
   Newspaper,
+  RefreshCw,
   SlidersHorizontal,
   Sparkles,
   Sun,
@@ -11,6 +13,11 @@ import {
 import { Sheet } from "../components/Sheet";
 import { describeWeather, type WeatherNow } from "../lib/weather";
 import type { Session } from "../lib/auth";
+import {
+  loadArticleFeedPage,
+  newsErrorMessage,
+  type ArticleCursor,
+} from "./news-api";
 import { ArticleCard, ChannelAvatar, FlashRow, FollowButton, WeatherGlyph } from "./NewsChrome";
 import {
   DEFAULT_FEED_FILTERS,
@@ -40,6 +47,9 @@ interface Props {
   weatherStatus: "loading" | "ready" | "error";
   live: boolean;
   loading: boolean;
+  /** Bumped after publishing so the live edition fetches a fresh first page. */
+  refreshKey: number;
+  onArticlesLoaded: (articles: NewsArticle[], channels: NewsChannel[]) => void;
   onOpenArticle: (articleId: string) => void;
   onOpenFlash: (flashId: string) => void;
   onOpenChannel: (channelId: string) => void;
@@ -66,6 +76,8 @@ export function NewsHome({
   weatherStatus,
   live,
   loading,
+  refreshKey,
+  onArticlesLoaded,
   onOpenArticle,
   onOpenFlash,
   onOpenChannel,
@@ -79,12 +91,20 @@ export function NewsHome({
   const [filters, setFilters] = useState<FeedFilters>(DEFAULT_FEED_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  const [serverArticles, setServerArticles] = useState<NewsArticle[] | null>(null);
+  const [serverNext, setServerNext] = useState<ArticleCursor | null>(null);
+  const [serverLoading, setServerLoading] = useState(false);
+  const [serverLoadingMore, setServerLoadingMore] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const feedRequest = useRef(0);
+
   const channelById = useMemo(
     () => new Map(channels.map((channel) => [channel.id, channel])),
     [channels],
   );
 
-  const visibleArticles = useMemo(() => {
+  const localArticles = useMemo(() => {
     return articles
       .filter((article) => {
         if (scope === "following" && !followed.includes(article.channelId)) return false;
@@ -122,6 +142,105 @@ export function NewsHome({
       })
       .sort((a, b) => a.minutesAgo - b.minutesAgo);
   }, [activeCategory, filters, flashes, followed, scope]);
+
+  const categoryKey = filters.categories.join("|");
+
+  const feedOptions = (cursor: ArticleCursor | null = null) => ({
+    scope,
+    category: activeCategory === "All" ? null : activeCategory,
+    categories: filters.categories.length ? filters.categories : null,
+    region: prefs.placeName,
+    since:
+      filters.time === "24h"
+        ? new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+        : filters.time === "week"
+          ? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+          : null,
+    cursor,
+    limit: 20,
+  });
+
+  useEffect(() => {
+    if (!live) {
+      setServerArticles(null);
+      setServerNext(null);
+      setServerError(null);
+      setServerLoading(false);
+      return;
+    }
+
+    if (filters.content === "flashes") {
+      setServerArticles(null);
+      setServerNext(null);
+      setServerError(null);
+      setServerLoading(false);
+      return;
+    }
+
+    const requestId = ++feedRequest.current;
+    setServerLoading(true);
+    setServerError(null);
+    setServerArticles(null);
+    setServerNext(null);
+
+    loadArticleFeedPage(session, feedOptions())
+      .then((page) => {
+        if (feedRequest.current !== requestId) return;
+        setServerArticles(page.articles);
+        setServerNext(page.next);
+        onArticlesLoaded(page.articles, page.channels);
+      })
+      .catch((error: unknown) => {
+        if (feedRequest.current !== requestId) return;
+        setServerError(newsErrorMessage(error, "Could not load the live edition."));
+      })
+      .finally(() => {
+        if (feedRequest.current !== requestId) return;
+        setServerLoading(false);
+      });
+    // feedOptions is intentionally derived from the dependencies below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    activeCategory,
+    categoryKey,
+    filters.content,
+    filters.time,
+    live,
+    onArticlesLoaded,
+    prefs.placeName,
+    refreshKey,
+    retryCount,
+    scope,
+    session.id,
+  ]);
+
+  const loadMoreArticles = async () => {
+    if (!live || !serverNext || serverLoadingMore) return;
+
+    const requestId = feedRequest.current;
+    setServerLoadingMore(true);
+    setServerError(null);
+
+    try {
+      const page = await loadArticleFeedPage(session, feedOptions(serverNext));
+      if (feedRequest.current !== requestId) return;
+
+      setServerArticles((previous) => {
+        const seen = new Set((previous ?? []).map((article) => article.id));
+        return [...(previous ?? []), ...page.articles.filter((article) => !seen.has(article.id))];
+      });
+      setServerNext(page.next);
+      onArticlesLoaded(page.articles, page.channels);
+    } catch (error) {
+      if (feedRequest.current !== requestId) return;
+      setServerError(newsErrorMessage(error, "Could not load more stories."));
+    } finally {
+      setServerLoadingMore(false);
+    }
+  };
+
+  const serverMode = live && filters.content !== "flashes";
+  const visibleArticles = serverMode ? (serverArticles ?? []) : localArticles;
 
   const featuredFlash = visibleFlashes[0] ?? null;
   const lead = visibleArticles[0] ?? null;
@@ -392,8 +511,35 @@ export function NewsHome({
                     Latest stories
                   </h2>
                 </div>
-                <span className="news-section-head__note">{visibleArticles.length} stories</span>
+                <span className="news-section-head__note">
+                  {visibleArticles.length}
+                  {serverNext ? "+" : ""} stories
+                </span>
               </div>
+
+              {serverMode && serverLoading ? (
+                <div className="news-feed-status" role="status">
+                  <LoaderCircle size={18} strokeWidth={2} className="news-spin" />
+                  <p>Loading the latest stories…</p>
+                </div>
+              ) : null}
+
+              {serverError ? (
+                <div className="news-feed-status news-feed-status--error" role="alert">
+                  <p>{serverError}</p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      serverArticles && serverNext
+                        ? void loadMoreArticles()
+                        : setRetryCount((value) => value + 1)
+                    }
+                  >
+                    <RefreshCw size={14} strokeWidth={2.2} />
+                    Try again
+                  </button>
+                </div>
+              ) : null}
 
               {lead ? (
                 <ArticleCard
@@ -421,7 +567,23 @@ export function NewsHome({
                 </div>
               ) : null}
 
-              {visibleArticles.length === 0 ? (
+              {visibleArticles.length > 0 && serverMode && serverNext ? (
+                <button
+                  type="button"
+                  className="news-load-more"
+                  onClick={() => void loadMoreArticles()}
+                  disabled={serverLoadingMore}
+                >
+                  {serverLoadingMore ? (
+                    <LoaderCircle size={16} strokeWidth={2} className="news-spin" />
+                  ) : (
+                    <RefreshCw size={15} strokeWidth={2.1} />
+                  )}
+                  {serverLoadingMore ? "Loading more stories" : "Load more stories"}
+                </button>
+              ) : null}
+
+              {visibleArticles.length === 0 && !serverLoading && !serverError ? (
                 <div className="news-empty">
                   <Newspaper size={22} strokeWidth={1.8} />
                   <p>No stories match this combination yet. Try a broader filter.</p>

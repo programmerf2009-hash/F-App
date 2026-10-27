@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Bookmark,
@@ -8,6 +8,7 @@ import {
   Clock3,
   Eye,
   FileText,
+  LoaderCircle,
   MapPin,
   Play,
   Search,
@@ -16,6 +17,13 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import type { Session } from "../lib/auth";
+import {
+  loadArticleSearchPage,
+  loadNewsChannelSearch,
+  newsErrorMessage,
+  type ArticleCursor,
+} from "./news-api";
 import {
   ArticleCard,
   CategoryLabel,
@@ -750,9 +758,12 @@ export function NewsFlashView({
 /* ========================================================================== */
 
 interface SearchViewProps {
+  session: Session;
   articles: NewsArticle[];
   channels: NewsChannel[];
   followed: string[];
+  live: boolean;
+  onArticlesLoaded: (articles: NewsArticle[], channels: NewsChannel[]) => void;
   onBack: () => void;
   onOpenArticle: (articleId: string) => void;
   onOpenChannel: (channelId: string) => void;
@@ -760,24 +771,116 @@ interface SearchViewProps {
 }
 
 export function NewsSearchView({
+  session,
   articles,
   channels,
   followed,
+  live,
+  onArticlesLoaded,
   onBack,
   onOpenArticle,
   onOpenChannel,
   onToggleFollow,
 }: SearchViewProps) {
   const [query, setQuery] = useState("");
+  const [settledQuery, setSettledQuery] = useState("");
+  const [serverArticles, setServerArticles] = useState<NewsArticle[]>([]);
+  const [serverChannels, setServerChannels] = useState<NewsChannel[]>([]);
+  const [nextCursor, setNextCursor] = useState<ArticleCursor | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const searchRequest = useRef(0);
 
   const channelById = useMemo(
-    () => new Map(channels.map((channel) => [channel.id, channel])),
-    [channels],
+    () =>
+      new Map(
+        [...channels, ...serverChannels].map((channel) => [channel.id, channel]),
+      ),
+    [channels, serverChannels],
   );
 
-  const needle = query.trim().toLowerCase();
+  const needle = settledQuery.trim().toLowerCase();
+  const typedNeedle = query.trim().toLowerCase();
+  const waitingForQuery = typedNeedle !== needle;
 
-  const articleResults = useMemo(() => {
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSettledQuery(query.trim());
+    }, 220);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
+    if (!live) return;
+
+    const requestId = ++searchRequest.current;
+
+    if (!needle) {
+      setServerArticles([]);
+      setServerChannels([]);
+      setNextCursor(null);
+      setSearchError(null);
+      setSearching(false);
+      return;
+    }
+
+    setSearching(true);
+    setSearchError(null);
+    setServerArticles([]);
+    setServerChannels([]);
+    setNextCursor(null);
+
+    Promise.all([
+      loadArticleSearchPage(session, settledQuery, { limit: 20 }),
+      loadNewsChannelSearch(session, settledQuery, 20),
+    ])
+      .then(([articlePage, channelResults]) => {
+        if (searchRequest.current !== requestId) return;
+        setServerArticles(articlePage.articles);
+        setServerChannels(channelResults);
+        setNextCursor(articlePage.next);
+        onArticlesLoaded(articlePage.articles, [...articlePage.channels, ...channelResults]);
+      })
+      .catch((error: unknown) => {
+        if (searchRequest.current !== requestId) return;
+        setSearchError(newsErrorMessage(error, "Search is unavailable right now."));
+      })
+      .finally(() => {
+        if (searchRequest.current !== requestId) return;
+        setSearching(false);
+      });
+  }, [live, needle, onArticlesLoaded, retryCount, session, settledQuery]);
+
+  const loadMoreResults = async () => {
+    if (!live || !nextCursor || loadingMore) return;
+
+    const requestId = searchRequest.current;
+    setLoadingMore(true);
+    setSearchError(null);
+
+    try {
+      const page = await loadArticleSearchPage(session, settledQuery, {
+        cursor: nextCursor,
+        limit: 20,
+      });
+      if (searchRequest.current !== requestId) return;
+      setServerArticles((previous) => {
+        const seen = new Set(previous.map((article) => article.id));
+        return [...previous, ...page.articles.filter((article) => !seen.has(article.id))];
+      });
+      setNextCursor(page.next);
+      onArticlesLoaded(page.articles, page.channels);
+    } catch (error) {
+      if (searchRequest.current !== requestId) return;
+      setSearchError(newsErrorMessage(error, "Could not load more results."));
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const localArticleResults = useMemo(() => {
     if (!needle) return [];
     return articles
       .filter((article) => {
@@ -798,7 +901,7 @@ export function NewsSearchView({
       .sort((a, b) => a.minutesAgo - b.minutesAgo);
   }, [articles, channelById, needle]);
 
-  const channelResults = useMemo(() => {
+  const localChannelResults = useMemo(() => {
     if (!needle) return [];
     return channels.filter(
       (channel) =>
@@ -807,6 +910,12 @@ export function NewsSearchView({
         channel.category.toLowerCase().includes(needle),
     );
   }, [channels, needle]);
+
+  const showSearching = live && Boolean(typedNeedle) && (searching || waitingForQuery);
+  const articleResults = live ? (showSearching ? [] : serverArticles) : localArticleResults;
+  const channelResults = live ? (showSearching ? [] : serverChannels) : localChannelResults;
+  const articleCount = live && nextCursor ? `${articleResults.length}+` : String(articleResults.length);
+  const channelCount = String(channelResults.length);
 
   return (
     <div className="news-overlay news-search-view">
@@ -836,7 +945,7 @@ export function NewsSearchView({
             ) : null}
           </div>
 
-          {!needle ? (
+          {!typedNeedle ? (
             <section className="news-search-view__trending" aria-labelledby="trending-searches">
               <p className="news-section-head__eyebrow" id="trending-searches">
                 Trending searches
@@ -852,12 +961,28 @@ export function NewsSearchView({
             </section>
           ) : (
             <>
+              {showSearching ? (
+                <div className="news-search-view__status" role="status">
+                  <LoaderCircle size={17} strokeWidth={2} className="news-spin" />
+                  Searching the live news index…
+                </div>
+              ) : null}
+
+              {searchError ? (
+                <div className="news-search-view__status news-search-view__status--error" role="alert">
+                  <p>{searchError}</p>
+                  <button type="button" onClick={() => setRetryCount((value) => value + 1)}>
+                    Try again
+                  </button>
+                </div>
+              ) : null}
+
               <section className="news-search-view__section" aria-labelledby="story-results">
                 <div className="news-section-head">
                   <div>
                     <p className="news-section-head__eyebrow">Stories</p>
                     <h2 className="news-section-head__title" id="story-results">
-                      {articleResults.length} matches
+                      {showSearching ? "Searching" : `${articleCount} matches`}
                     </h2>
                   </div>
                 </div>
@@ -889,12 +1014,28 @@ export function NewsSearchView({
                       );
                     })}
                   </div>
-                ) : (
+                ) : !showSearching && !searchError ? (
                   <div className="news-empty">
                     <Search size={22} strokeWidth={1.8} />
                     <p>No story matches “{query.trim()}”.</p>
                   </div>
-                )}
+                ) : null}
+
+                {live && nextCursor && !searchError ? (
+                  <button
+                    type="button"
+                    className="news-load-more"
+                    onClick={() => void loadMoreResults()}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? (
+                      <LoaderCircle size={16} strokeWidth={2} className="news-spin" />
+                    ) : (
+                      <ArrowRight size={15} strokeWidth={2.1} />
+                    )}
+                    {loadingMore ? "Loading more results" : "Load more stories"}
+                  </button>
+                ) : null}
               </section>
 
               <section className="news-search-view__section" aria-labelledby="channel-results">
@@ -902,7 +1043,7 @@ export function NewsSearchView({
                   <div>
                     <p className="news-section-head__eyebrow">Channels</p>
                     <h2 className="news-section-head__title" id="channel-results">
-                      {channelResults.length} matches
+                      {showSearching ? "Searching" : `${channelCount} matches`}
                     </h2>
                   </div>
                 </div>
@@ -939,17 +1080,23 @@ export function NewsSearchView({
                       </div>
                     ))}
                   </div>
+                ) : !showSearching && !searchError ? (
+                  <div className="news-empty news-empty--compact">
+                    <Search size={20} strokeWidth={1.8} />
+                    <p>No channel matches this search.</p>
+                  </div>
                 ) : null}
               </section>
             </>
           )}
 
-          {!needle ? (
+          {!typedNeedle ? (
             <div className="news-search-view__note">
               <MapPin size={17} strokeWidth={2} />
               <p>
-                Home search covers story titles, article text, tags and channel names. It will move
-                to Postgres full-text search when the news schema is connected.
+                {live
+                  ? "Search runs on the live news index: headlines, summaries, tags and channel names, newest first."
+                  : "This preview searches the stories bundled with the app. Connect the news schema for live full-text search."}
               </p>
             </div>
           ) : null}

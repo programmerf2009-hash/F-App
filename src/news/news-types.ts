@@ -76,6 +76,8 @@ export interface NewsArticle {
   readMinutes: number;
   urgent?: boolean;
   tags: string[];
+  /** ISO publication time. Present on server-backed results for cursor paging. */
+  publishedAt?: string;
 }
 
 export interface NewsFlash {

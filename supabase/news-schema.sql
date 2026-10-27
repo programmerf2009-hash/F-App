@@ -1002,6 +1002,12 @@ $$;
 
 -- Keyset-paginated article feed. Pass the previous row's published_at + id as
 -- (p_before, p_before_id). Index news_articles_published_cursor_idx serves it.
+-- Drop the earlier 7-argument signature before adding filter parameters, so
+-- re-running this file cannot leave two overloaded RPCs with default arguments.
+drop function if exists public.news_article_feed(
+  text, text, text, boolean, timestamptz, uuid, integer
+);
+
 create or replace function public.news_article_feed(
   p_scope text default 'foryou',
   p_category text default null,
@@ -1009,7 +1015,9 @@ create or replace function public.news_article_feed(
   p_urgent_only boolean default false,
   p_before timestamptz default null,
   p_before_id uuid default null,
-  p_limit integer default 20
+  p_limit integer default 20,
+  p_categories text[] default null,
+  p_since timestamptz default null
 )
 returns setof public.news_articles
 language sql
@@ -1023,6 +1031,12 @@ as $$
   where a.status = 'published'
     and c.archived_at is null
     and (p_category is null or a.category = p_category)
+    and (
+      p_categories is null
+      or cardinality(p_categories) = 0
+      or a.category = any (p_categories)
+    )
+    and (p_since is null or a.published_at >= p_since)
     and (not p_urgent_only or a.urgent)
     and (
       p_scope <> 'following'
@@ -1037,6 +1051,7 @@ as $$
       p_scope <> 'local'
       or p_region is null
       or a.region = p_region
+      or a.category = 'Local'
     )
     and (
       p_before is null
@@ -1071,6 +1086,12 @@ as $$
       or a.search_vector @@ websearch_to_tsquery('simple', coalesce(p_query, ''))
       or a.title ilike '%' || p_query || '%'
       or a.summary ilike '%' || p_query || '%'
+      or c.name ilike '%' || p_query || '%'
+      or exists (
+        select 1
+        from unnest(a.tags) as article_tags(tag)
+        where tag ilike '%' || p_query || '%'
+      )
     )
     and (
       p_before is null
@@ -1635,7 +1656,7 @@ grant execute on function public.news_is_admin() to authenticated;
 grant execute on function public.news_channel_owner(uuid) to authenticated;
 grant execute on function public.news_channel_owners(uuid[]) to authenticated;
 
-grant execute on function public.news_article_feed(text, text, text, boolean, timestamptz, uuid, integer) to authenticated;
+grant execute on function public.news_article_feed(text, text, text, boolean, timestamptz, uuid, integer, text[], timestamptz) to authenticated;
 grant execute on function public.news_search_articles(text, text, timestamptz, uuid, integer) to authenticated;
 grant execute on function public.news_search_channels(text, integer) to authenticated;
 

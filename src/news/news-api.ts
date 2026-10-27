@@ -18,6 +18,7 @@ import {
   type NewsArticle,
   type NewsCategory,
   type NewsChannel,
+  type FeedScope,
   type NewsFlash,
   type NewsPrefs,
   type NewsShort,
@@ -34,6 +35,29 @@ export interface NewsSnapshot {
   shorts: NewsShort[];
   followed: string[];
   prefs: Partial<NewsPrefs> | null;
+}
+
+export interface ArticleCursor {
+  publishedAt: string;
+  id: string;
+}
+
+export interface ArticlePage {
+  articles: NewsArticle[];
+  channels: NewsChannel[];
+  /** Pass this back to load the next page. Null means the edition is complete. */
+  next: ArticleCursor | null;
+}
+
+export interface ArticleFeedOptions {
+  scope: FeedScope;
+  category?: NewsCategory | null;
+  categories?: NewsCategory[] | null;
+  region?: string | null;
+  since?: string | null;
+  urgentOnly?: boolean;
+  cursor?: ArticleCursor | null;
+  limit?: number;
 }
 
 export interface NewsTransfer {
@@ -285,6 +309,12 @@ function mapOwnerName(owner: OwnerRow | undefined, handle: string): string {
 const CHANNEL_COLUMNS =
   "id, owner_id, name, handle, description, category, avatar_url, cover_url, verified, subscriber_count, created_at";
 
+const ARTICLE_COLUMNS =
+  "id, channel_id, title, summary, category, region, tags, cover_url, urgent, read_minutes, published_at";
+
+const ARTICLE_BLOCK_COLUMNS =
+  "article_id, position, type, text, media_id, media_url, poster_url, caption, duration_seconds";
+
 function mapChannel(
   row: ChannelRow,
   owner: OwnerRow | undefined,
@@ -347,6 +377,7 @@ function mapArticle(
     readMinutes: row.read_minutes ?? Math.max(1, Math.round(wordsIn(body) / 200)),
     urgent: row.urgent,
     tags: row.tags ?? [],
+    ...(row.published_at ? { publishedAt: row.published_at } : {}),
   };
 }
 
@@ -470,9 +501,7 @@ export async function loadNewsSnapshot(session: Session): Promise<NewsSnapshot> 
       .limit(80),
     supabase
       .from("news_articles")
-      .select(
-        "id, channel_id, title, summary, category, region, tags, cover_url, urgent, read_minutes, published_at",
-      )
+      .select(ARTICLE_COLUMNS)
       .eq("status", "published")
       .order("published_at", { ascending: false })
       .limit(80),
@@ -620,6 +649,169 @@ export async function loadNewsSnapshot(session: Session): Promise<NewsSnapshot> 
     followed,
     prefs: prefsResult.data ? mapPreferences(prefsResult.data) : null,
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Paginated feed and search                                                  */
+/* -------------------------------------------------------------------------- */
+
+async function loadOwnerMap(channelIds: string[]): Promise<Map<string, OwnerRow>> {
+  const ownerByChannel = new Map<string, OwnerRow>();
+  if (!channelIds.length) return ownerByChannel;
+
+  const { data, error } = await supabase.rpc("news_channel_owners", {
+    p_channel_ids: channelIds,
+  });
+  if (!error && Array.isArray(data)) {
+    for (const owner of data as OwnerRow[]) {
+      ownerByChannel.set(owner.channel_id, owner);
+    }
+  }
+  return ownerByChannel;
+}
+
+async function hydrateChannels(rows: ChannelRow[], session: Session): Promise<NewsChannel[]> {
+  const channelIds = rows.map((row) => row.id);
+  if (!channelIds.length) return [];
+
+  const [ownerByChannel, memberships] = await Promise.all([
+    loadOwnerMap(channelIds),
+    supabase
+      .from("news_channel_members")
+      .select("channel_id")
+      .eq("user_id", session.id)
+      .in("channel_id", channelIds),
+  ]);
+
+  const memberIds = new Set(
+    ((memberships.data ?? []) as Array<{ channel_id: string }>).map((row) => row.channel_id),
+  );
+
+  return rows.map((row) =>
+    mapChannel(row, ownerByChannel.get(row.id), session, memberIds.has(row.id)),
+  );
+}
+
+async function hydrateArticlePage(
+  rows: ArticleRow[],
+  session: Session,
+  limit: number,
+): Promise<ArticlePage> {
+  if (!rows.length) return { articles: [], channels: [], next: null };
+
+  const articleIds = rows.map((row) => row.id);
+  const channelIds = [...new Set(rows.map((row) => row.channel_id))];
+
+  const [blocksResult, channelsResult] = await Promise.all([
+    supabase
+      .from("news_article_blocks")
+      .select(ARTICLE_BLOCK_COLUMNS)
+      .in("article_id", articleIds)
+      .order("position", { ascending: true }),
+    supabase
+      .from("news_channels")
+      .select(CHANNEL_COLUMNS)
+      .in("id", channelIds)
+      .is("archived_at", null),
+  ]);
+
+  if (blocksResult.error) throw new Error(blocksResult.error.message);
+  if (channelsResult.error) throw new Error(channelsResult.error.message);
+
+  const blockRows = (blocksResult.data ?? []) as ArticleBlockRow[];
+  const channelRows = (channelsResult.data ?? []) as ChannelRow[];
+
+  const mediaIds = new Set<string>();
+  for (const block of blockRows) if (block.media_id) mediaIds.add(block.media_id);
+
+  let mediaRows: MediaRow[] = [];
+  if (mediaIds.size) {
+    const { data, error } = await supabase
+      .from("news_media")
+      .select("id, bucket, storage_path, public_url, poster_url")
+      .in("id", [...mediaIds]);
+    if (error) throw new Error(error.message);
+    mediaRows = (data ?? []) as MediaRow[];
+  }
+
+  const mediaById = new Map(mediaRows.map((media) => [media.id, media]));
+  const blocksByArticle = new Map<string, ArticleBlockRow[]>();
+  for (const block of blockRows) {
+    const list = blocksByArticle.get(block.article_id) ?? [];
+    list.push(block);
+    blocksByArticle.set(block.article_id, list);
+  }
+
+  const channels = await hydrateChannels(channelRows, session);
+  const channelIdSet = new Set(channels.map((channel) => channel.id));
+  const articles = rows
+    .filter((row) => channelIdSet.has(row.channel_id))
+    .map((row) => mapArticle(row, blocksByArticle.get(row.id) ?? [], mediaById));
+
+  const last = rows[rows.length - 1];
+  const next =
+    rows.length >= limit && last?.published_at
+      ? { publishedAt: last.published_at, id: last.id }
+      : null;
+
+  return { articles, channels, next };
+}
+
+/**
+ * Keyset-paginated article edition. The final row becomes the cursor, and the
+ * next RPC call starts strictly after it, so pages never overlap.
+ */
+export async function loadArticleFeedPage(
+  session: Session,
+  options: ArticleFeedOptions,
+): Promise<ArticlePage> {
+  const limit = Math.max(1, Math.min(options.limit ?? 20, 50));
+  const { data, error } = await supabase.rpc("news_article_feed", {
+    p_scope: options.scope,
+    p_category: options.category ?? null,
+    p_categories: options.categories?.length ? options.categories : null,
+    p_region: options.scope === "local" ? options.region?.trim() || null : null,
+    p_since: options.since ?? null,
+    p_urgent_only: options.urgentOnly ?? false,
+    p_before: options.cursor?.publishedAt ?? null,
+    p_before_id: options.cursor?.id ?? null,
+    p_limit: limit,
+  });
+  if (error) throw new Error(error.message);
+
+  return hydrateArticlePage((data ?? []) as ArticleRow[], session, limit);
+}
+
+export async function loadArticleSearchPage(
+  session: Session,
+  query: string,
+  options: { cursor?: ArticleCursor | null; limit?: number; category?: NewsCategory | null } = {},
+): Promise<ArticlePage> {
+  const limit = Math.max(1, Math.min(options.limit ?? 20, 50));
+  const { data, error } = await supabase.rpc("news_search_articles", {
+    p_query: query,
+    p_category: options.category ?? null,
+    p_before: options.cursor?.publishedAt ?? null,
+    p_before_id: options.cursor?.id ?? null,
+    p_limit: limit,
+  });
+  if (error) throw new Error(error.message);
+
+  return hydrateArticlePage((data ?? []) as ArticleRow[], session, limit);
+}
+
+export async function loadNewsChannelSearch(
+  session: Session,
+  query: string,
+  limit = 20,
+): Promise<NewsChannel[]> {
+  const { data, error } = await supabase.rpc("news_search_channels", {
+    p_query: query,
+    p_limit: Math.max(1, Math.min(limit, 60)),
+  });
+  if (error) throw new Error(error.message);
+
+  return hydrateChannels((data ?? []) as ChannelRow[], session);
 }
 
 /* -------------------------------------------------------------------------- */
