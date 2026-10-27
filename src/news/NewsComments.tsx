@@ -30,7 +30,6 @@ import {
   type NewsReportReason,
   type NewsReportTargetInput,
 } from "./news-types";
-import "./news-comments.css";
 
 function minutesSince(iso: string): number {
   const time = Date.parse(iso);
