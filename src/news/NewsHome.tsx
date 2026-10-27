@@ -96,6 +96,7 @@ export function NewsHome({
   const [serverLoading, setServerLoading] = useState(false);
   const [serverLoadingMore, setServerLoadingMore] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [urgentArticles, setUrgentArticles] = useState<NewsArticle[]>([]);
   const [retryCount, setRetryCount] = useState(0);
   const feedRequest = useRef(0);
 
@@ -214,6 +215,29 @@ export function NewsHome({
     session.id,
   ]);
 
+  useEffect(() => {
+    if (!live) {
+      setUrgentArticles([]);
+      return;
+    }
+
+    let active = true;
+
+    loadArticleFeedPage(session, { scope: "foryou", urgentOnly: true, limit: 4 })
+      .then((page) => {
+        if (!active) return;
+        setUrgentArticles(page.articles);
+        onArticlesLoaded(page.articles, page.channels);
+      })
+      .catch(() => {
+        if (active) setUrgentArticles([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [live, onArticlesLoaded, refreshKey, retryCount, session.id]);
+
   const loadMoreArticles = async () => {
     if (!live || !serverNext || serverLoadingMore) return;
 
@@ -245,6 +269,9 @@ export function NewsHome({
   const featuredFlash = visibleFlashes[0] ?? null;
   const lead = visibleArticles[0] ?? null;
   const rest = visibleArticles.slice(1);
+  const urgentRail = live
+    ? urgentArticles
+    : localArticles.filter((article) => article.urgent).slice(0, 4);
 
   const followedChannels = useMemo(
     () => channels.filter((channel) => followed.includes(channel.id)),
@@ -501,7 +528,76 @@ export function NewsHome({
                   <span className="news-channel-mini__meta">Open Studio</span>
                 </button>
               </div>
+
+              {followedChannels.length > 0 && discoverChannels.length > 0 ? (
+                <div className="news-home__discover">
+                  <div className="news-section-head news-section-head--sub">
+                    <div>
+                      <p className="news-section-head__eyebrow">Discover</p>
+                      <h3 className="news-section-head__title">More newsrooms</h3>
+                    </div>
+                  </div>
+
+                  <div className="news-channel-strip">
+                    {discoverChannels.map((channel) => (
+                      <div className="news-channel-mini" key={channel.id}>
+                        <button
+                          type="button"
+                          className="news-channel-mini__open"
+                          onClick={() => onOpenChannel(channel.id)}
+                        >
+                          <ChannelAvatar channel={channel} size={46} />
+                          <span className="news-channel-mini__name">
+                            {channel.name}
+                            {channel.verified ? <span className="news-verified-dot" /> : null}
+                          </span>
+                          <span className="news-channel-mini__meta">
+                            {formatCount(channel.subscribers)} followers
+                          </span>
+                        </button>
+                        <FollowButton
+                          following={followed.includes(channel.id)}
+                          onToggle={() => onToggleFollow(channel.id)}
+                          compact
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </section>
+
+            {urgentRail.length > 0 ? (
+              <section className="news-block news-urgent" aria-labelledby="urgent-now">
+                <div className="news-section-head">
+                  <div>
+                    <p className="news-section-head__eyebrow">Developing</p>
+                    <h2 className="news-section-head__title" id="urgent-now">
+                      Urgent
+                    </h2>
+                  </div>
+                  <span className="news-section-head__note">
+                    {urgentRail.length} {urgentRail.length === 1 ? "alert" : "alerts"}
+                  </span>
+                </div>
+
+                <div className="news-urgent__list">
+                  {urgentRail.map((article) => {
+                    const channel = channelById.get(article.channelId);
+                    if (!channel) return null;
+
+                    return (
+                      <ArticleCard
+                        key={article.id}
+                        article={article}
+                        channel={channel}
+                        onOpen={() => onOpenArticle(article.id)}
+                      />
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
 
             <section className="news-block" aria-labelledby="latest-stories">
               <div className="news-section-head">
@@ -512,8 +608,9 @@ export function NewsHome({
                   </h2>
                 </div>
                 <span className="news-section-head__note">
-                  {visibleArticles.length}
-                  {serverNext ? "+" : ""} stories
+                  {serverMode && serverLoading && visibleArticles.length === 0
+                    ? "Loading"
+                    : `${visibleArticles.length}${serverNext ? "+" : ""} stories`}
                 </span>
               </div>
 
