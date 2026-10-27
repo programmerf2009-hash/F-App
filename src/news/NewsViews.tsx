@@ -24,6 +24,7 @@ import {
   loadArticleSearchPage,
   loadNewsChannelSearch,
   newsErrorMessage,
+  registerNewsView,
   type ArticleCursor,
 } from "./news-api";
 import {
@@ -59,11 +60,12 @@ interface ArticleViewProps {
   related: NewsArticle[];
   followed: boolean;
   isOwn: boolean;
+  saved: boolean;
+  onToggleSave: () => void;
   onBack: () => void;
   onOpenChannel: (channelId: string) => void;
   onOpenArticle: (articleId: string) => void;
   onToggleFollow: (channelId: string) => void;
-  notify: (message: string) => void;
 }
 
 export function NewsArticleView({
@@ -72,13 +74,24 @@ export function NewsArticleView({
   related,
   followed,
   isOwn,
+  saved,
+  onToggleSave,
   onBack,
   onOpenChannel,
   onOpenArticle,
   onToggleFollow,
-  notify,
 }: ArticleViewProps) {
-  const [saved, setSaved] = useState(false);
+  const [views, setViews] = useState(article.views ?? 0);
+
+  useEffect(() => {
+    let active = true;
+    void registerNewsView("article", article.id).then((count) => {
+      if (active && count !== null) setViews(count);
+    });
+    return () => {
+      active = false;
+    };
+  }, [article.id]);
 
   return (
     <div className="news-overlay news-reader">
@@ -87,14 +100,7 @@ export function NewsArticleView({
         backLabel="Back to news feed"
         right={
           <div className="news-reader__actions">
-            <SaveButton
-              saved={saved}
-              compact
-              onToggle={() => {
-                setSaved((value) => !value);
-                notify(saved ? "Removed from saved" : "Story saved");
-              }}
-            />
+            <SaveButton saved={saved} compact onToggle={onToggleSave} />
             <ShareDisabled compact />
           </div>
         }
@@ -108,6 +114,10 @@ export function NewsArticleView({
               {article.urgent ? <span className="news-urgent-label">Urgent</span> : null}
               <span>{timeAgo(article.minutesAgo)}</span>
               <span>{article.readMinutes} min read</span>
+              <span className="news-reader__views">
+                <Eye size={13} strokeWidth={2.1} />
+                {formatCount(views)} {views === 1 ? "view" : "views"}
+              </span>
             </div>
 
             <h1>{article.title}</h1>
@@ -233,10 +243,8 @@ export function NewsArticleView({
             <button
               type="button"
               className="news-reader__save-wide"
-              onClick={() => {
-                setSaved((value) => !value);
-                notify(saved ? "Removed from saved" : "Story saved");
-              }}
+              onClick={onToggleSave}
+              aria-pressed={saved}
             >
               <Bookmark size={17} strokeWidth={2} fill={saved ? "currentColor" : "none"} />
               {saved ? "Saved to your reading list" : "Save for later"}
@@ -627,10 +635,21 @@ export function NewsFlashView({
   const [playing, setPlaying] = useState(true);
   const [muted, setMuted] = useState(true);
   const [progress, setProgress] = useState(0);
+  const [views, setViews] = useState(flash.views);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const live = isFlashLive(flash);
   const hoursLeft = flashHoursLeft(flash);
   const followUp = relatedArticles[0] ?? null;
+
+  useEffect(() => {
+    let active = true;
+    void registerNewsView("flash", flash.id).then((count) => {
+      if (active && count !== null) setViews(count);
+    });
+    return () => {
+      active = false;
+    };
+  }, [flash.id]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -746,7 +765,7 @@ export function NewsFlashView({
             <span>{timeAgo(flash.minutesAgo)}</span>
             <span>
               <Eye size={13} strokeWidth={2.1} />
-              {formatCount(flash.views)}
+              {formatCount(views)}
             </span>
             <span>{live ? `Expires in ${hoursLeft}h` : "Archive"}</span>
           </div>

@@ -47,6 +47,12 @@
   font-weight: 550;
 }
 
+.news-reader__views {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
 .news-urgent-label {
   padding: 3px 6px;
   border-radius: 999px;

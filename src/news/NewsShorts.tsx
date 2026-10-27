@@ -10,22 +10,32 @@ import {
   VolumeX,
 } from "lucide-react";
 import { ChannelAvatar, VerifiedBadge } from "./NewsChrome";
+import { registerNewsView } from "./news-api";
 import { formatCount, timeAgo, type NewsChannel, type NewsPrefs, type NewsShort } from "./news-types";
 
 interface Props {
   channels: NewsChannel[];
   shorts: NewsShort[];
   prefs: NewsPrefs;
+  liked: string[];
+  saved: string[];
+  onToggleReaction: (shortId: string, kind: "like" | "save") => Promise<boolean>;
   onOpenChannel: (channelId: string) => void;
-  notify: (message: string) => void;
 }
 
-export function NewsShorts({ channels, shorts, prefs, onOpenChannel, notify }: Props) {
+export function NewsShorts({
+  channels,
+  shorts,
+  prefs,
+  liked,
+  saved,
+  onToggleReaction,
+  onOpenChannel,
+}: Props) {
   const [playingId, setPlayingId] = useState<string | null>(
     prefs.autoplay ? (shorts[0]?.id ?? null) : null,
   );
-  const [liked, setLiked] = useState<string[]>([]);
-  const [saved, setSaved] = useState<string[]>([]);
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [muted, setMuted] = useState(true);
   const [progress, setProgress] = useState<Record<string, number>>({});
   const videoRefs = useRef(new Map<string, HTMLVideoElement>());
@@ -50,20 +60,41 @@ export function NewsShorts({ channels, shorts, prefs, onOpenChannel, notify }: P
     [channels],
   );
 
-  const toggleLike = (short: NewsShort) => {
-    const willLike = !liked.includes(short.id);
-    setLiked((previous) =>
-      willLike ? [...previous, short.id] : previous.filter((id) => id !== short.id),
-    );
-    notify(willLike ? "Saved to your reactions" : "Reaction removed");
-  };
+  useEffect(() => {
+    if (!playingId) return;
+    void registerNewsView("short", playingId);
+  }, [playingId]);
 
-  const toggleSave = (short: NewsShort) => {
-    const willSave = !saved.includes(short.id);
-    setSaved((previous) =>
-      willSave ? [...previous, short.id] : previous.filter((id) => id !== short.id),
-    );
-    notify(willSave ? "Short saved" : "Removed from saved");
+  const react = (short: NewsShort, kind: "like" | "save") => {
+    const wasActive =
+      kind === "like" ? liked.includes(short.id) : saved.includes(short.id);
+    const next = !wasActive;
+
+    if (kind === "like") {
+      const current = likeCounts[short.id] ?? short.likes;
+      setLikeCounts((previous) => ({
+        ...previous,
+        [short.id]: Math.max(0, current + (next ? 1 : -1)),
+      }));
+    }
+
+    void onToggleReaction(short.id, kind)
+      .then((active) => {
+        // Another device may have changed the reaction first; re-align the
+        // optimistic counter with the state the server actually stored.
+        if (kind !== "like" || active === next) return;
+        setLikeCounts((previous) => ({
+          ...previous,
+          [short.id]: Math.max(0, (previous[short.id] ?? short.likes) + (active ? 1 : -1)),
+        }));
+      })
+      .catch(() => {
+        if (kind !== "like") return;
+        setLikeCounts((previous) => ({
+          ...previous,
+          [short.id]: Math.max(0, (previous[short.id] ?? short.likes) + (next ? -1 : 1)),
+        }));
+      });
   };
 
   return (
@@ -131,7 +162,7 @@ export function NewsShorts({ channels, shorts, prefs, onOpenChannel, notify }: P
                 <button
                   type="button"
                   className={`news-short__action${isLiked ? " is-active" : ""}`}
-                  onClick={() => toggleLike(short)}
+                  onClick={() => react(short, "like")}
                   aria-pressed={isLiked}
                   aria-label={isLiked ? "Remove reaction" : "React to this short"}
                 >
@@ -142,13 +173,13 @@ export function NewsShorts({ channels, shorts, prefs, onOpenChannel, notify }: P
                       fill={isLiked ? "currentColor" : "none"}
                     />
                   </span>
-                  <small>{formatCount(short.likes + (isLiked ? 1 : 0))}</small>
+                  <small>{formatCount(likeCounts[short.id] ?? short.likes)}</small>
                 </button>
 
                 <button
                   type="button"
                   className={`news-short__action${isSaved ? " is-active" : ""}`}
-                  onClick={() => toggleSave(short)}
+                  onClick={() => react(short, "save")}
                   aria-pressed={isSaved}
                   aria-label={isSaved ? "Remove from saved" : "Save this short"}
                 >

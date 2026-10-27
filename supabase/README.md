@@ -27,12 +27,20 @@ Do this **after** step 1, in the same SQL Editor:
 3. The result should be `Success. No rows returned`.
 
 The News script is additive; it creates the `news_*` tables, RLS policies,
-feed/search RPCs, verification and transfer rules, and the public `news-media`
-bucket. It must be run after `schema.sql` because it references `profiles`.
+feed/search RPCs, verification and transfer rules, the public `news-media`
+bucket, and the engagement ledger (`news_views`, `news_saved_articles`,
+`news_short_reactions`) with the view/save/reaction RPCs. It must be run after
+`schema.sql` because it references `profiles`.
 
 Re-running is safe: functions are replaced and policies are dropped before
 being recreated. Do not run an older copy of this file — the app calls the
-9-argument `news_article_feed` RPC.
+9-argument `news_article_feed` RPC and the engagement RPCs
+`news_register_view`, `news_toggle_saved_article` and
+`news_toggle_short_reaction`.
+
+If the live site was opened before this section was applied, saves and
+reactions fall back to session-only state. Re-run the whole file once, then
+reload the app: view counts, saved stories and Short likes become persistent.
 
 ## 3. Auth settings
 

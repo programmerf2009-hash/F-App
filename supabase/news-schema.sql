@@ -1770,11 +1770,312 @@ begin
 end
 $$;
 
+-- ----------------------------------------------------------------------------
+-- 14. Engagement: daily views, saved stories and Short reactions
+-- ----------------------------------------------------------------------------
+-- View counters live on news_articles / news_flashes / news_shorts. This
+-- section adds the per-reader ledger that makes those counters honest: one
+-- counted view per signed-in reader per target per day. Saved stories and
+-- Short likes/saves are personal rows, never channel rows.
+
+create table if not exists public.news_views (
+  user_id     uuid not null references auth.users (id) on delete cascade,
+  target_type text not null,
+  target_id   uuid not null,
+  viewed_on   date not null default current_date,
+  created_at  timestamptz not null default now(),
+  primary key (user_id, target_type, target_id, viewed_on),
+  constraint news_views_target_type
+    check (target_type in ('article', 'flash', 'short'))
+);
+
+create index if not exists news_views_target_idx
+  on public.news_views (target_type, target_id, viewed_on);
+
+create table if not exists public.news_saved_articles (
+  user_id    uuid not null references auth.users (id) on delete cascade,
+  article_id uuid not null references public.news_articles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, article_id)
+);
+
+create index if not exists news_saved_articles_recent_idx
+  on public.news_saved_articles (user_id, created_at desc);
+
+create table if not exists public.news_short_reactions (
+  user_id    uuid not null references auth.users (id) on delete cascade,
+  short_id   uuid not null references public.news_shorts (id) on delete cascade,
+  kind       text not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, short_id, kind),
+  constraint news_short_reactions_kind
+    check (kind in ('like', 'save'))
+);
+
+create index if not exists news_short_reactions_target_idx
+  on public.news_short_reactions (short_id, kind);
+
+-- Count a view at most once per reader, target and day. Security definer so
+-- the counter can be incremented without opening direct UPDATE to clients.
+create or replace function public.news_register_view(
+  p_target_type text,
+  p_target_id uuid
+)
+returns bigint
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_rows bigint := 0;
+  v_views bigint := 0;
+begin
+  if v_uid is null then
+    return null;
+  end if;
+
+  if p_target_type is null or p_target_type not in ('article', 'flash', 'short') then
+    raise exception 'Unknown view target' using errcode = '22023';
+  end if;
+
+  if p_target_type = 'article' then
+    if not exists (
+      select 1 from public.news_articles
+      where id = p_target_id and status in ('published', 'archived')
+    ) then
+      return null;
+    end if;
+  elsif p_target_type = 'flash' then
+    if not exists (
+      select 1 from public.news_flashes
+      where id = p_target_id and status in ('published', 'archived')
+    ) then
+      return null;
+    end if;
+  else
+    if not exists (
+      select 1 from public.news_shorts
+      where id = p_target_id and status in ('published', 'archived')
+    ) then
+      return null;
+    end if;
+  end if;
+
+  insert into public.news_views (user_id, target_type, target_id)
+  values (v_uid, p_target_type, p_target_id)
+  on conflict do nothing;
+
+  get diagnostics v_rows = row_count;
+
+  if v_rows = 0 then
+    if p_target_type = 'article' then
+      select views into v_views from public.news_articles where id = p_target_id;
+    elsif p_target_type = 'flash' then
+      select views into v_views from public.news_flashes where id = p_target_id;
+    else
+      select views into v_views from public.news_shorts where id = p_target_id;
+    end if;
+    return coalesce(v_views, 0);
+  end if;
+
+  if p_target_type = 'article' then
+    update public.news_articles
+      set views = views + 1
+      where id = p_target_id
+      returning views into v_views;
+  elsif p_target_type = 'flash' then
+    update public.news_flashes
+      set views = views + 1
+      where id = p_target_id
+      returning views into v_views;
+  else
+    update public.news_shorts
+      set views = views + 1
+      where id = p_target_id
+      returning views into v_views;
+  end if;
+
+  return coalesce(v_views, 0);
+end;
+$$;
+
+create or replace function public.news_toggle_saved_article(p_article_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_rows bigint := 0;
+begin
+  if v_uid is null then
+    raise exception 'Sign in to save a story' using errcode = '28000';
+  end if;
+
+  if not exists (
+    select 1 from public.news_articles
+    where id = p_article_id and status in ('published', 'archived')
+  ) then
+    raise exception 'Story not found' using errcode = 'P0002';
+  end if;
+
+  delete from public.news_saved_articles
+  where user_id = v_uid and article_id = p_article_id;
+
+  get diagnostics v_rows = row_count;
+
+  if v_rows > 0 then
+    return false;
+  end if;
+
+  insert into public.news_saved_articles (user_id, article_id)
+  values (v_uid, p_article_id);
+
+  return true;
+end;
+$$;
+
+create or replace function public.news_toggle_short_reaction(
+  p_short_id uuid,
+  p_kind text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_rows bigint := 0;
+begin
+  if v_uid is null then
+    raise exception 'Sign in to react to a short' using errcode = '28000';
+  end if;
+
+  if p_kind is null or p_kind not in ('like', 'save') then
+    raise exception 'Unknown reaction' using errcode = '22023';
+  end if;
+
+  if not exists (
+    select 1 from public.news_shorts
+    where id = p_short_id and status in ('published', 'archived')
+  ) then
+    raise exception 'Short not found' using errcode = 'P0002';
+  end if;
+
+  delete from public.news_short_reactions
+  where user_id = v_uid and short_id = p_short_id and kind = p_kind;
+
+  get diagnostics v_rows = row_count;
+
+  if v_rows > 0 then
+    return false;
+  end if;
+
+  insert into public.news_short_reactions (user_id, short_id, kind)
+  values (v_uid, p_short_id, p_kind);
+
+  return true;
+end;
+$$;
+
+-- Keep news_shorts.like_count in step with personal reactions, including when
+-- an account is deleted and its reactions cascade away.
+create or replace function public.news_sync_short_like_count()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' and new.kind = 'like' then
+    update public.news_shorts
+      set like_count = like_count + 1
+      where id = new.short_id;
+  elsif tg_op = 'DELETE' and old.kind = 'like' then
+    update public.news_shorts
+      set like_count = greatest(0, like_count - 1)
+      where id = old.short_id;
+  end if;
+
+  return null;
+end;
+$$;
+
+drop trigger if exists news_short_reactions_count on public.news_short_reactions;
+create trigger news_short_reactions_count
+  after insert or delete on public.news_short_reactions
+  for each row execute function public.news_sync_short_like_count();
+
+-- Row level security ------------------------------------------------------
+
+alter table public.news_views           enable row level security;
+alter table public.news_saved_articles  enable row level security;
+alter table public.news_short_reactions enable row level security;
+
+-- Views are written by the definer RPC only: no policies on purpose.
+drop policy if exists "news_saved_articles_read_own" on public.news_saved_articles;
+create policy "news_saved_articles_read_own"
+  on public.news_saved_articles for select to authenticated
+  using (user_id = auth.uid());
+
+drop policy if exists "news_saved_articles_insert_own" on public.news_saved_articles;
+create policy "news_saved_articles_insert_own"
+  on public.news_saved_articles for insert to authenticated
+  with check (user_id = auth.uid());
+
+drop policy if exists "news_saved_articles_delete_own" on public.news_saved_articles;
+create policy "news_saved_articles_delete_own"
+  on public.news_saved_articles for delete to authenticated
+  using (user_id = auth.uid());
+
+drop policy if exists "news_short_reactions_read_own" on public.news_short_reactions;
+create policy "news_short_reactions_read_own"
+  on public.news_short_reactions for select to authenticated
+  using (user_id = auth.uid());
+
+drop policy if exists "news_short_reactions_insert_own" on public.news_short_reactions;
+create policy "news_short_reactions_insert_own"
+  on public.news_short_reactions for insert to authenticated
+  with check (user_id = auth.uid());
+
+drop policy if exists "news_short_reactions_delete_own" on public.news_short_reactions;
+create policy "news_short_reactions_delete_own"
+  on public.news_short_reactions for delete to authenticated
+  using (user_id = auth.uid());
+
+-- Counters are server-owned. Strip table-wide UPDATE, then grant only the
+-- editorial columns the app legitimately writes.
+revoke update on table public.news_articles from authenticated, anon;
+grant update (
+  title, summary, category, region, tags, cover_url, cover_alt, urgent,
+  status, follow_up_for_flash_id, read_minutes, published_at
+) on public.news_articles to authenticated;
+
+revoke update on table public.news_flashes from authenticated, anon;
+revoke update on table public.news_shorts from authenticated, anon;
+
+-- Privileges --------------------------------------------------------------
+
+revoke all on table public.news_views from authenticated, anon;
+revoke all on table public.news_saved_articles from authenticated, anon;
+grant select, insert, delete on public.news_saved_articles to authenticated;
+
+revoke all on table public.news_short_reactions from authenticated, anon;
+grant select, insert, delete on public.news_short_reactions to authenticated;
+
+revoke all on function public.news_register_view(text, uuid) from public, anon;
+grant execute on function public.news_register_view(text, uuid) to authenticated;
+
+revoke all on function public.news_toggle_saved_article(uuid) from public, anon;
+grant execute on function public.news_toggle_saved_article(uuid) to authenticated;
+
+revoke all on function public.news_toggle_short_reaction(uuid, text) from public, anon;
+grant execute on function public.news_toggle_short_reaction(uuid, text) to authenticated;
+
 notify pgrst, 'reload schema';
-
-
-
-
 
 
 

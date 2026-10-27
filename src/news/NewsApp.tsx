@@ -30,11 +30,16 @@ import {
 import { DEMO_ARTICLES, DEMO_CHANNELS, DEMO_FLASHES, DEMO_SHORTS } from "./news-data";
 import {
   createLiveChannel,
+  loadMyNewsState,
   loadNewsSnapshot,
+  loadSavedArticles,
   newsErrorMessage,
   saveNewsPreferences,
   setNewsSubscription,
+  toggleSavedArticle as persistSavedArticle,
+  toggleShortReaction as persistShortReaction,
   type NewsSnapshot,
+  type ShortReaction,
 } from "./news-api";
 import {
   loadFollowed,
@@ -89,6 +94,11 @@ function appendUnique<T extends { id: string }>(base: T[], incoming: T[]): T[] {
   return [...base, ...incoming.filter((item) => !seen.has(item.id))];
 }
 
+function withEngagement(list: string[], id: string, active: boolean): string[] {
+  if (!active) return list.filter((item) => item !== id);
+  return list.includes(id) ? list : [...list, id];
+}
+
 /**
  * F News & Weather — a fixed-identity product inside F App.
  *
@@ -110,6 +120,13 @@ export function NewsApp({ session, onClose }: Props) {
   const [view, setView] = useState<ViewState>(null);
   const [sheet, setSheet] = useState<SheetState>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+
+  const [savedArticles, setSavedArticles] = useState<string[]>([]);
+  const [likedShorts, setLikedShorts] = useState<string[]>([]);
+  const [savedShorts, setSavedShorts] = useState<string[]>([]);
+  const [libraryArticles, setLibraryArticles] = useState<NewsArticle[]>([]);
+  const [libraryChannels, setLibraryChannels] = useState<NewsChannel[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
 
   const [weather, setWeather] = useState<WeatherNow | null>(null);
   const [weatherStatus, setWeatherStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -140,6 +157,23 @@ export function NewsApp({ session, onClose }: Props) {
   );
 
   const liveFlashes = useMemo(() => flashes.filter((flash) => isFlashLive(flash)), [flashes]);
+
+  /**
+   * The Settings library must reflect the current saved set immediately, even
+   * while the server refresh is still in flight. Snapshot stories fill the gap
+   * for a story saved during this session; hydrated rows cover older saves.
+   */
+  const savedStories = useMemo(() => {
+    if (!live) return articles.filter((item) => savedArticles.includes(item.id));
+    const hydrated = new Set(libraryArticles.map((item) => item.id));
+    const fresh = articles.filter(
+      (item) => savedArticles.includes(item.id) && !hydrated.has(item.id),
+    );
+    return [
+      ...fresh,
+      ...libraryArticles.filter((item) => savedArticles.includes(item.id)),
+    ];
+  }, [articles, libraryArticles, live, savedArticles]);
 
   const place = useMemo(() => resolvePlace(prefs), [prefs]);
 
@@ -175,9 +209,15 @@ export function NewsApp({ session, onClose }: Props) {
     }
 
     try {
-      const next = await loadNewsSnapshot(session);
+      const [next, engagement] = await Promise.all([
+        loadNewsSnapshot(session),
+        loadMyNewsState(),
+      ]);
       setSnapshot(next);
       setFollowed(next.followed);
+      setSavedArticles(engagement.savedArticles);
+      setLikedShorts(engagement.likedShorts);
+      setSavedShorts(engagement.savedShorts);
       if (next.prefs) {
         setPrefs((previous) => ({ ...previous, ...next.prefs }));
       }
@@ -301,6 +341,100 @@ export function NewsApp({ session, onClose }: Props) {
     );
   };
 
+  const toggleArticleSave = useCallback(
+    (articleId: string) => {
+      const wasSaved = savedArticles.includes(articleId);
+      const next = !wasSaved;
+      setSavedArticles((previous) => withEngagement(previous, articleId, next));
+
+      if (!live) {
+        notify(next ? "Story saved" : "Removed from saved");
+        return;
+      }
+
+      void persistSavedArticle(articleId)
+        .then((savedNow) => {
+          setSavedArticles((previous) => withEngagement(previous, articleId, savedNow));
+          notify(savedNow ? "Story saved" : "Removed from saved");
+        })
+        .catch((error: unknown) => {
+          setSavedArticles((previous) => withEngagement(previous, articleId, wasSaved));
+          notify(newsErrorMessage(error, "Could not save this story."));
+        });
+    },
+    [live, notify, savedArticles],
+  );
+
+  const changeShortReaction = useCallback(
+    (shortId: string, kind: ShortReaction): Promise<boolean> => {
+      const list = kind === "like" ? likedShorts : savedShorts;
+      const wasActive = list.includes(shortId);
+      const next = !wasActive;
+      const setter = kind === "like" ? setLikedShorts : setSavedShorts;
+
+      setter((previous) => withEngagement(previous, shortId, next));
+
+      if (!live) {
+        notify(
+          kind === "like"
+            ? next
+              ? "Reaction added"
+              : "Reaction removed"
+            : next
+              ? "Short saved"
+              : "Removed from saved",
+        );
+        return Promise.resolve(next);
+      }
+
+      return persistShortReaction(shortId, kind)
+        .then((active) => {
+          setter((previous) => withEngagement(previous, shortId, active));
+          notify(
+            kind === "like"
+              ? active
+                ? "Reaction added"
+                : "Reaction removed"
+              : active
+                ? "Short saved"
+                : "Removed from saved",
+          );
+          return active;
+        })
+        .catch((error: unknown) => {
+          setter((previous) => withEngagement(previous, shortId, wasActive));
+          notify(newsErrorMessage(error, "Could not update this reaction."));
+          throw error;
+        });
+    },
+    [likedShorts, live, notify, savedShorts],
+  );
+
+  const loadLibrary = useCallback(async () => {
+    if (!live) {
+      setLibraryArticles([]);
+      setLibraryChannels([]);
+      return;
+    }
+
+    setLibraryLoading(true);
+    try {
+      const page = await loadSavedArticles(session);
+      setLibraryArticles(page.articles);
+      setLibraryChannels(page.channels);
+      rememberContent(page.articles, page.channels);
+    } catch {
+      setLibraryArticles([]);
+      setLibraryChannels([]);
+    } finally {
+      setLibraryLoading(false);
+    }
+  }, [live, rememberContent, session]);
+
+  useEffect(() => {
+    if (tab === "settings") void loadLibrary();
+  }, [loadLibrary, savedArticles, tab]);
+
   const createChannel = useCallback(
     async (input: CreateChannelInput): Promise<string | null> => {
       const handle = slugifyHandle(input.handle);
@@ -414,9 +548,16 @@ export function NewsApp({ session, onClose }: Props) {
     void loadLive();
   }, [loadLive]);
 
-  const article = view?.type === "article" ? articles.find((item) => item.id === view.id) : null;
+  const article =
+    view?.type === "article"
+      ? articles.find((item) => item.id === view.id) ??
+        libraryArticles.find((item) => item.id === view.id) ??
+        null
+      : null;
   const articleChannel = article
-    ? channels.find((channel) => channel.id === article.channelId) ?? null
+    ? channels.find((channel) => channel.id === article.channelId) ??
+      libraryChannels.find((channel) => channel.id === article.channelId) ??
+      null
     : null;
 
   const channelView =
@@ -489,8 +630,10 @@ export function NewsApp({ session, onClose }: Props) {
             channels={channels}
             shorts={shorts}
             prefs={prefs}
+            liked={likedShorts}
+            saved={savedShorts}
+            onToggleReaction={changeShortReaction}
             onOpenChannel={(id) => setView({ type: "channel", id })}
-            notify={notify}
           />
         ) : null}
 
@@ -499,9 +642,13 @@ export function NewsApp({ session, onClose }: Props) {
             prefs={prefs}
             weather={weather}
             weatherStatus={weatherStatus}
+            savedStories={savedStories}
+            savedStoriesLoading={libraryLoading}
             onUpdate={(patch) => setPrefs((previous) => ({ ...previous, ...patch }))}
             onOpenPlace={() => setSheet({ type: "place" })}
             onOpenWeather={() => setSheet({ type: "weather" })}
+            onOpenArticle={(id) => setView({ type: "article", id })}
+            onRemoveSaved={toggleArticleSave}
             notify={notify}
           />
         ) : null}
@@ -537,11 +684,12 @@ export function NewsApp({ session, onClose }: Props) {
             .slice(0, 3)}
           followed={followed.includes(article.channelId)}
           isOwn={articleChannel.isMine === true}
+          saved={savedArticles.includes(article.id)}
+          onToggleSave={() => toggleArticleSave(article.id)}
           onBack={() => setView(null)}
           onOpenChannel={(id) => setView({ type: "channel", id })}
           onOpenArticle={(id) => setView({ type: "article", id })}
           onToggleFollow={toggleFollow}
-          notify={notify}
         />
       ) : null}
 

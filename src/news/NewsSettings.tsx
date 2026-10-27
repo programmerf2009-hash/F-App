@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
 import {
   Bell,
+  Bookmark,
   Check,
   ChevronRight,
   CloudSun,
+  LoaderCircle,
   LocateFixed,
   MapPin,
   PlayCircle,
@@ -19,6 +21,8 @@ import {
   FEED_CATEGORIES,
   temperature,
   temperatureUnit,
+  timeAgo,
+  type NewsArticle,
   type NewsCategory,
   type NewsPrefs,
 } from "./news-types";
@@ -27,9 +31,13 @@ interface Props {
   prefs: NewsPrefs;
   weather: WeatherNow | null;
   weatherStatus: "loading" | "ready" | "error";
+  savedStories: NewsArticle[];
+  savedStoriesLoading: boolean;
   onUpdate: (patch: Partial<NewsPrefs>) => void;
   onOpenPlace: () => void;
   onOpenWeather: () => void;
+  onOpenArticle: (articleId: string) => void;
+  onRemoveSaved: (articleId: string) => void;
   notify: (message: string) => void;
 }
 
@@ -37,9 +45,13 @@ export function NewsSettings({
   prefs,
   weather,
   weatherStatus,
+  savedStories,
+  savedStoriesLoading,
   onUpdate,
   onOpenPlace,
   onOpenWeather,
+  onOpenArticle,
+  onRemoveSaved,
   notify,
 }: Props) {
   const condition =
@@ -226,6 +238,55 @@ export function NewsSettings({
           </div>
         </section>
 
+        <section className="news-settings-section" aria-labelledby="settings-saved">
+          <NewsSectionHead
+            eyebrow="Your library"
+            title="Saved stories"
+            action={<Bookmark size={18} strokeWidth={1.9} />}
+          />
+
+          {savedStoriesLoading ? (
+            <p className="news-saved-note" role="status">
+              <LoaderCircle size={15} strokeWidth={2} className="news-spin" />
+              Loading your saved stories…
+            </p>
+          ) : savedStories.length > 0 ? (
+            <div className="news-settings-list">
+              {savedStories.map((story) => (
+                <div className="news-saved-row" key={story.id}>
+                  <button
+                    type="button"
+                    className="news-saved-row__open"
+                    onClick={() => onOpenArticle(story.id)}
+                  >
+                    <img src={story.cover} alt="" loading="lazy" />
+                    <span className="news-saved-row__copy">
+                      <span className="news-saved-row__title">{story.title}</span>
+                      <span className="news-saved-row__meta">
+                        {story.category} · {timeAgo(story.minutesAgo)}
+                      </span>
+                    </span>
+                    <ChevronRight size={16} strokeWidth={2.2} />
+                  </button>
+                  <button
+                    type="button"
+                    className="news-saved-row__remove"
+                    onClick={() => onRemoveSaved(story.id)}
+                    aria-label={`Remove ${story.title} from saved`}
+                    title="Remove from saved"
+                  >
+                    <Bookmark size={16} strokeWidth={2} fill="currentColor" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="news-saved-note">
+              Save a story from the reader and it will wait for you here.
+            </p>
+          )}
+        </section>
+
         <section className="news-settings-section" aria-labelledby="settings-edition">
           <NewsSectionHead eyebrow="How this works" title="The news edition" />
 
@@ -250,8 +311,8 @@ export function NewsSettings({
         </section>
 
         <p className="news-signed-note">
-          News &amp; Weather settings are stored on this device for now. Server sync arrives with the
-          news channel schema.
+          In the live edition, preferences, saved stories and reactions follow your account. The
+          preview edition keeps them on this device only.
         </p>
       </div>
     </main>

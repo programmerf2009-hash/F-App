@@ -122,6 +122,7 @@ interface ArticleRow {
   cover_url: string | null;
   urgent: boolean;
   read_minutes: number | null;
+  views: number | null;
   published_at: string | null;
 }
 
@@ -310,7 +311,7 @@ const CHANNEL_COLUMNS =
   "id, owner_id, name, handle, description, category, avatar_url, cover_url, verified, subscriber_count, created_at";
 
 const ARTICLE_COLUMNS =
-  "id, channel_id, title, summary, category, region, tags, cover_url, urgent, read_minutes, published_at";
+  "id, channel_id, title, summary, category, region, tags, cover_url, urgent, read_minutes, views, published_at";
 
 const ARTICLE_BLOCK_COLUMNS =
   "article_id, position, type, text, media_id, media_url, poster_url, caption, duration_seconds";
@@ -377,6 +378,7 @@ function mapArticle(
     readMinutes: row.read_minutes ?? Math.max(1, Math.round(wordsIn(body) / 200)),
     urgent: row.urgent,
     tags: row.tags ?? [],
+    views: Number(row.views ?? 0),
     ...(row.published_at ? { publishedAt: row.published_at } : {}),
   };
 }
@@ -479,6 +481,9 @@ export function newsErrorMessage(error: unknown, fallback: string): string {
   }
   if (/row-level security/i.test(message)) {
     return "You do not have permission to do that in this newsroom.";
+  }
+  if (/could not find the function|schema cache|does not exist/i.test(message)) {
+    return "This live feature is not enabled yet. Apply the latest news schema.";
   }
   return message;
 }
@@ -1029,4 +1034,145 @@ export async function declineChannelTransfer(transferId: string): Promise<void> 
     p_transfer_id: transferId,
   });
   if (error) throw new Error(error.message);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Engagement: views, saved stories and Short reactions                       */
+/* -------------------------------------------------------------------------- */
+
+export type NewsViewTarget = "article" | "flash" | "short";
+export type ShortReaction = "like" | "save";
+
+export interface MyNewsState {
+  savedArticles: string[];
+  likedShorts: string[];
+  savedShorts: string[];
+}
+
+const EMPTY_NEWS_STATE: MyNewsState = {
+  savedArticles: [],
+  likedShorts: [],
+  savedShorts: [],
+};
+
+interface SavedArticleRow {
+  article_id: string;
+}
+
+interface ReactionRow {
+  short_id: string;
+  kind: string;
+}
+
+/**
+ * Personal engagement state for the signed-in reader. A database that has not
+ * received the engagement section yet simply reports an empty state instead of
+ * taking the whole News edition offline.
+ */
+export async function loadMyNewsState(): Promise<MyNewsState> {
+  if (!supabaseConfigured) return EMPTY_NEWS_STATE;
+
+  const [savedResult, reactionResult] = await Promise.all([
+    supabase.from("news_saved_articles").select("article_id"),
+    supabase.from("news_short_reactions").select("short_id, kind"),
+  ]);
+
+  if (savedResult.error || reactionResult.error) return EMPTY_NEWS_STATE;
+
+  const reactions = (reactionResult.data ?? []) as ReactionRow[];
+
+  return {
+    savedArticles: ((savedResult.data ?? []) as SavedArticleRow[]).map((row) => row.article_id),
+    likedShorts: reactions.filter((row) => row.kind === "like").map((row) => row.short_id),
+    savedShorts: reactions.filter((row) => row.kind === "save").map((row) => row.short_id),
+  };
+}
+
+/**
+ * Counts one read per reader, target and day. Returns the fresh counter, or
+ * null when the engagement schema is not deployed yet. Never throws: a missing
+ * counter must not block the story.
+ */
+export async function registerNewsView(
+  target: NewsViewTarget,
+  id: string,
+): Promise<number | null> {
+  if (!supabaseConfigured) return null;
+
+  try {
+    const { data, error } = await supabase.rpc("news_register_view", {
+      p_target_type: target,
+      p_target_id: id,
+    });
+    if (error || data === null || data === undefined) return null;
+    const value = Number(data);
+    return Number.isFinite(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Persists a saved story and returns the new saved state. */
+export async function toggleSavedArticle(articleId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc("news_toggle_saved_article", {
+    p_article_id: articleId,
+  });
+  if (error) throw new Error(error.message);
+  return Boolean(data);
+}
+
+/** Persists a Short like or save and returns the new active state. */
+export async function toggleShortReaction(
+  shortId: string,
+  kind: ShortReaction,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc("news_toggle_short_reaction", {
+    p_short_id: shortId,
+    p_kind: kind,
+  });
+  if (error) throw new Error(error.message);
+  return Boolean(data);
+}
+
+export interface SavedArticlesPage {
+  articles: NewsArticle[];
+  channels: NewsChannel[];
+}
+
+/**
+ * Hydrates the signed-in reader's saved stories, newest save first. Articles
+ * that are no longer published are skipped by RLS. Channels are returned too so
+ * the caller can open a saved story whose newsroom is outside the top snapshot.
+ */
+export async function loadSavedArticles(session: Session): Promise<SavedArticlesPage> {
+  const { data, error } = await supabase
+    .from("news_saved_articles")
+    .select("article_id")
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw new Error(error.message);
+
+  const ids = ((data ?? []) as SavedArticleRow[]).map((row) => row.article_id);
+  if (!ids.length) return { articles: [], channels: [] };
+
+  const { data: articleRows, error: articleError } = await supabase
+    .from("news_articles")
+    .select(ARTICLE_COLUMNS)
+    .in("id", ids)
+    .eq("status", "published");
+  if (articleError) throw new Error(articleError.message);
+
+  const rows = (articleRows ?? []) as ArticleRow[];
+  if (!rows.length) return { articles: [], channels: [] };
+
+  const page = await hydrateArticlePage(rows, session, rows.length);
+  const byId = new Map(page.articles.map((article) => [article.id, article]));
+
+  // Preserve save order rather than publication order.
+  return {
+    articles: ids
+      .map((id) => byId.get(id))
+      .filter((article): article is NewsArticle => Boolean(article)),
+    channels: page.channels,
+  };
 }

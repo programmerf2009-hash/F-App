@@ -76,6 +76,8 @@ export interface NewsArticle {
   readMinutes: number;
   urgent?: boolean;
   tags: string[];
+  /** Counted reads. Server-backed stories expose the live counter. */
+  views?: number;
   /** ISO publication time. Present on server-backed results for cursor paging. */
   publishedAt?: string;
 }
