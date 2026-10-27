@@ -303,6 +303,84 @@
   white-space: nowrap;
 }
 
+.sec__chip--live {
+  border-color: rgba(78, 201, 148, 0.34);
+  background: rgba(78, 201, 148, 0.1);
+  color: #7fe0b4;
+}
+
+/* News entry on the F App home shelf */
+
+.news-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--h-border);
+  border-radius: 20px;
+  background: linear-gradient(160deg, rgba(21, 39, 63, 0.66) 0%, rgba(9, 18, 32, 0.86) 100%);
+  text-align: left;
+  transition: border-color 0.16s, transform 0.16s;
+}
+
+.news-entry:hover {
+  border-color: rgba(143, 185, 255, 0.32);
+}
+
+.news-entry:active {
+  transform: scale(0.995);
+}
+
+.news-entry__plate {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: #f7f3ea;
+  box-shadow: inset 0 0 0 1px rgba(16, 24, 40, 0.06);
+}
+
+.news-entry__plate img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.news-entry__copy {
+  display: grid;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.news-entry__copy strong {
+  color: var(--h-text);
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.news-entry__copy span {
+  color: var(--h-muted);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.news-entry__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  color: var(--h-accent);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 /* --------------------------------------------------------------------------
    Kurslar
    -------------------------------------------------------------------------- */
@@ -982,6 +1060,27 @@
 
 .home[data-theme="gold"] .sec__chip {
   background: rgba(255, 255, 255, 0.6);
+}
+
+.home[data-theme="gold"] .sec__chip--live {
+  border-color: rgba(33, 138, 91, 0.3);
+  background: rgba(33, 138, 91, 0.1);
+  color: #1f7a52;
+}
+
+.home[data-theme="gold"] .news-entry {
+  background: linear-gradient(165deg, #ffffff 0%, #fbf2dd 100%);
+  box-shadow:
+    inset 0 1px 0 #ffffff,
+    0 14px 30px rgba(140, 110, 40, 0.13);
+}
+
+.home[data-theme="gold"] .news-entry:hover {
+  border-color: rgba(168, 132, 60, 0.4);
+}
+
+.home[data-theme="gold"] .news-entry__plate {
+  background: #ffffff;
 }
 
 .home[data-theme="gold"] .rate-card {

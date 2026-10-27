@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronDown, LogOut, RotateCcw, Search } from "lucide-react";
+import { ArrowRight, ChevronDown, LogOut, RotateCcw, Search } from "lucide-react";
 import { CurrencySheet } from "./CurrencySheet";
 import { PlaceSheet } from "./PlaceSheet";
 import { WeatherCard } from "./WeatherCard";
@@ -471,18 +471,22 @@ export function Home({ session, theme, onLogout, onReplay, onNavigate, onOpenNew
             <h2 className="sec__title" id="news-title">
               News
             </h2>
-            <span className="sec__chip">Soon</span>
+            <span className="sec__chip sec__chip--live">Live</span>
           </div>
 
-          <div className="shelf" aria-hidden="true">
-            {[0, 1, 2, 3].map((index) => (
-              <div className="shelf__card" key={index}>
-                <span className="sk sk--media" />
-                <span className="sk sk--line" />
-                <span className="sk sk--line sk--short" />
-              </div>
-            ))}
-          </div>
+          <button type="button" className="news-entry" onClick={onOpenNews}>
+            <span className="news-entry__plate">
+              <img src={LOGO_SRC} alt="" />
+            </span>
+            <span className="news-entry__copy">
+              <strong>Today&rsquo;s edition is live</strong>
+              <span>Stories, 24-hour flashes and Shorts from newsrooms in Uzbekistan.</span>
+            </span>
+            <span className="news-entry__cta">
+              Open
+              <ArrowRight size={14} strokeWidth={2.2} />
+            </span>
+          </button>
         </section>
 
         {/* ------------------------------------------------------- do'kon aksiya */}
