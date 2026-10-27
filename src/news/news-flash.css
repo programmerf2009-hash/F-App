@@ -380,6 +380,23 @@
   font-weight: 700;
 }
 
+.news-flash-view__report {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 30px;
+  margin-top: 4px;
+  color: rgba(220, 232, 255, 0.42);
+  font-size: 8.5px;
+  font-weight: 650;
+}
+
+.news-flash-view__report:hover {
+  color: #ff9b92;
+}
+
 .news-flash-view__footer {
   flex: none;
   margin: 0;

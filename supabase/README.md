@@ -28,19 +28,40 @@ Do this **after** step 1, in the same SQL Editor:
 
 The News script is additive; it creates the `news_*` tables, RLS policies,
 feed/search RPCs, verification and transfer rules, the public `news-media`
-bucket, and the engagement ledger (`news_views`, `news_saved_articles`,
-`news_short_reactions`) with the view/save/reaction RPCs. It must be run after
-`schema.sql` because it references `profiles`.
+bucket, the engagement ledger (`news_views`, `news_saved_articles`,
+`news_short_reactions`) with the view/save/reaction RPCs, and the comments +
+moderation layer (`news_comments`, `news_reports`) with its RPCs. It must be
+run after `schema.sql` because it references `profiles`.
 
 Re-running is safe: functions are replaced and policies are dropped before
 being recreated. Do not run an older copy of this file — the app calls the
-9-argument `news_article_feed` RPC and the engagement RPCs
+9-argument `news_article_feed` RPC, the engagement RPCs
 `news_register_view`, `news_toggle_saved_article` and
-`news_toggle_short_reaction`.
+`news_toggle_short_reaction`, and the comment/moderation RPCs listed below.
 
 If the live site was opened before this section was applied, saves and
-reactions fall back to session-only state. Re-run the whole file once, then
-reload the app: view counts, saved stories and Short likes become persistent.
+reactions fall back to session-only state, and comments show an “apply the
+latest schema” note. Re-run the whole file once, then reload the app.
+
+### Comment moderation
+
+Comments and reports are written through definer RPCs only. The public
+nickname/avatar card is limited to those two fields, so the friend-only
+`profiles` table never opens to strangers.
+
+To give an account access to the moderation desk, run this once in the SQL
+Editor with the account's real auth user id:
+
+```sql
+insert into public.news_admins (user_id)
+values ('<auth-user-id>')
+on conflict do nothing;
+```
+
+The **Moderation** section appears in **News → Settings** only for accounts in
+`news_admins`. Moderators can hide/remove a reported comment, take down an
+article/Flash/Short, archive a channel, or dismiss a report. Every action is
+written to `news_audit_log`.
 
 ## 3. Auth settings
 
@@ -100,6 +121,22 @@ Engagement:
    a reload.
 4. Like and save a Short. Both states should survive a reload, and the like
    counter should move by exactly one.
+
+Comments and moderation:
+
+1. `news_comments` and `news_reports` must answer `200` with the anon key (they
+   return `[]` or a permission error because access is RPC-only). A `404` means
+   section 15 has not been applied.
+2. Open a published article and post a comment. It should appear immediately
+   and survive a reload.
+3. Reply to that comment. The reply should be one level deep under the root.
+4. Delete your own comment. The row disappears; a root with replies becomes
+   “Comment removed”.
+5. Report the comment. A moderator account should see it in **Settings →
+   Moderation → Reports queue**. Hide it, then reload the article: it must be
+   gone. Dismissing a report must not hide the target.
+6. Reporting the same target twice from one account must return the existing
+   open report instead of creating a duplicate.
 
 Friends:
 

@@ -117,6 +117,83 @@ export interface CreateChannelInput {
   description: string;
 }
 
+/* -------------------------------------------------------------------------- */
+/* Comments and moderation                                                    */
+/* -------------------------------------------------------------------------- */
+
+export type NewsCommentTarget = "article" | "flash" | "short";
+
+export type NewsReportTarget = NewsCommentTarget | "comment" | "channel";
+
+export type NewsReportReason =
+  | "spam"
+  | "abuse"
+  | "misinformation"
+  | "copyright"
+  | "other";
+
+export type NewsReportStatus = "open" | "reviewing" | "resolved" | "dismissed";
+
+export interface NewsComment {
+  id: string;
+  parentId: string | null;
+  body: string;
+  status: "visible" | "removed";
+  createdAt: string;
+  authorId: string;
+  nickname: string;
+  avatar: string | null;
+  isMine: boolean;
+}
+
+export interface NewsReport {
+  id: string;
+  targetType: NewsReportTarget;
+  targetId: string;
+  reason: NewsReportReason;
+  details: string;
+  status: NewsReportStatus;
+  createdAt: string;
+  resolvedAt: string | null;
+  targetSnapshot: string;
+  reporterNickname: string;
+  targetAuthorNickname: string | null;
+}
+
+export interface NewsReportTargetInput {
+  type: NewsReportTarget;
+  id: string;
+  title: string;
+}
+
+export const NEWS_REPORT_REASONS: Array<{
+  value: NewsReportReason;
+  label: string;
+  hint: string;
+}> = [
+  { value: "spam", label: "Spam or bait", hint: "Repeated, misleading or low-value posting." },
+  { value: "abuse", label: "Harassment or hate", hint: "Threats, abuse or targeted attacks." },
+  {
+    value: "misinformation",
+    label: "False information",
+    hint: "A claim that is materially false or unsafe.",
+  },
+  { value: "copyright", label: "Copyright", hint: "Someone else's work used without permission." },
+  { value: "other", label: "Something else", hint: "Tell the desk what is wrong." },
+];
+
+export const NEWS_REPORT_TARGET_LABEL: Record<NewsReportTarget, string> = {
+  article: "Article",
+  flash: "Flash",
+  short: "Short",
+  comment: "Comment",
+  channel: "Channel",
+};
+
+export function reportReasonLabel(reason: NewsReportReason): string {
+  return NEWS_REPORT_REASONS.find((item) => item.value === reason)?.label ?? "Report";
+}
+
 export interface NewsPrefs {
   placeName: string;
   placeRegion: string;

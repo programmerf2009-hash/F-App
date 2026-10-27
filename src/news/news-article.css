@@ -374,6 +374,24 @@
   font-weight: 700;
 }
 
+.news-reader__report {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  min-height: 32px;
+  margin-top: 5px;
+  color: var(--n-faint);
+  font-family: var(--n-sans);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.news-reader__report:hover {
+  color: var(--n-red);
+}
+
 .news-reader__more {
   margin-top: 32px;
   padding-top: 20px;

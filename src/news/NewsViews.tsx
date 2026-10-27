@@ -8,6 +8,7 @@ import {
   Clock3,
   Eye,
   FileText,
+  Flag,
   LoaderCircle,
   MapPin,
   Play,
@@ -47,7 +48,9 @@ import {
   type NewsArticle,
   type NewsChannel,
   type NewsFlash,
+  type NewsReportTargetInput,
 } from "./news-types";
+import { NewsComments } from "./NewsComments";
 import { TRENDING_SEARCHES, articlesForChannel } from "./news-data";
 
 /* ========================================================================== */
@@ -55,31 +58,39 @@ import { TRENDING_SEARCHES, articlesForChannel } from "./news-data";
 /* ========================================================================== */
 
 interface ArticleViewProps {
+  session: Session;
   article: NewsArticle;
   channel: NewsChannel;
   related: NewsArticle[];
   followed: boolean;
   isOwn: boolean;
   saved: boolean;
+  live: boolean;
+  isAdmin: boolean;
   onToggleSave: () => void;
   onBack: () => void;
   onOpenChannel: (channelId: string) => void;
   onOpenArticle: (articleId: string) => void;
   onToggleFollow: (channelId: string) => void;
+  onReport: (target: NewsReportTargetInput) => void;
 }
 
 export function NewsArticleView({
+  session,
   article,
   channel,
   related,
   followed,
   isOwn,
   saved,
+  live,
+  isAdmin,
   onToggleSave,
   onBack,
   onOpenChannel,
   onOpenArticle,
   onToggleFollow,
+  onReport,
 }: ArticleViewProps) {
   const [views, setViews] = useState(article.views ?? 0);
 
@@ -249,7 +260,27 @@ export function NewsArticleView({
               <Bookmark size={17} strokeWidth={2} fill={saved ? "currentColor" : "none"} />
               {saved ? "Saved to your reading list" : "Save for later"}
             </button>
+
+            <button
+              type="button"
+              className="news-reader__report"
+              onClick={() =>
+                onReport({ type: "article", id: article.id, title: article.title })
+              }
+            >
+              <Flag size={14} strokeWidth={2} />
+              Report this story
+            </button>
           </footer>
+
+          <NewsComments
+            targetType="article"
+            targetId={article.id}
+            session={session}
+            live={live}
+            isAdmin={isAdmin}
+            onReport={onReport}
+          />
 
           <section className="news-reader__more" aria-labelledby="more-from-channel">
             <div className="news-section-head">
@@ -610,27 +641,35 @@ export function NewsChannelView({
 /* ========================================================================== */
 
 interface FlashViewProps {
+  session: Session;
   flash: NewsFlash;
   channel: NewsChannel;
   relatedArticles: NewsArticle[];
   followed: boolean;
   isOwn: boolean;
+  liveEdition: boolean;
+  isAdmin: boolean;
   onBack: () => void;
   onOpenChannel: (channelId: string) => void;
   onOpenArticle: (articleId: string) => void;
   onToggleFollow: (channelId: string) => void;
+  onReport: (target: NewsReportTargetInput) => void;
 }
 
 export function NewsFlashView({
+  session,
   flash,
   channel,
   relatedArticles,
   followed,
   isOwn,
+  liveEdition,
+  isAdmin,
   onBack,
   onOpenChannel,
   onOpenArticle,
   onToggleFollow,
+  onReport,
 }: FlashViewProps) {
   const [playing, setPlaying] = useState(true);
   const [muted, setMuted] = useState(true);
@@ -830,6 +869,27 @@ export function NewsFlashView({
             Open {channel.name}
             <ChevronRight size={15} strokeWidth={2.2} />
           </button>
+
+          <button
+            type="button"
+            className="news-flash-view__report"
+            onClick={() => onReport({ type: "flash", id: flash.id, title: flash.title })}
+          >
+            <Flag size={13} strokeWidth={2} />
+            Report this flash
+          </button>
+        </div>
+
+        <div className="news-flash-view__comments">
+          <NewsComments
+            targetType="flash"
+            targetId={flash.id}
+            session={session}
+            live={liveEdition}
+            isAdmin={isAdmin}
+            dark
+            onReport={onReport}
+          />
         </div>
       </div>
 

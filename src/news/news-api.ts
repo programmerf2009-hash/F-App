@@ -19,8 +19,14 @@ import {
   type NewsCategory,
   type NewsChannel,
   type FeedScope,
+  type NewsComment,
+  type NewsCommentTarget,
   type NewsFlash,
   type NewsPrefs,
+  type NewsReport,
+  type NewsReportReason,
+  type NewsReportStatus,
+  type NewsReportTarget,
   type NewsShort,
 } from "./news-types";
 
@@ -1215,4 +1221,176 @@ export async function loadSavedArticles(session: Session): Promise<SavedArticles
       .filter((article): article is NewsArticle => Boolean(article)),
     channels: page.channels,
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Comments and moderation                                                    */
+/* -------------------------------------------------------------------------- */
+
+interface CommentRow {
+  id: string;
+  parent_id: string | null;
+  body: string;
+  status: string;
+  created_at: string;
+  author_id: string;
+  nickname: string;
+  avatar_path: string | null;
+  is_mine: boolean;
+}
+
+interface ReportRow {
+  id: string;
+  target_type: string;
+  target_id: string;
+  reason: string;
+  details: string;
+  status: string;
+  created_at: string;
+  resolved_at: string | null;
+  target_snapshot: string;
+  reporter_nickname: string;
+  target_author_nickname: string | null;
+}
+
+/**
+ * Loads a public comment thread through the definer RPC. The function returns
+ * nickname and avatar only, so commenting never exposes friend-only profiles.
+ */
+export async function loadCommentThread(
+  targetType: NewsCommentTarget,
+  targetId: string,
+  limit = 50,
+): Promise<NewsComment[]> {
+  const { data, error } = await withTimeout(
+    supabase.rpc("news_comment_thread", {
+      p_target_type: targetType,
+      p_target_id: targetId,
+      p_limit: limit,
+    }),
+    10000,
+  );
+  if (error) throw new Error(error.message);
+
+  return ((data ?? []) as CommentRow[]).map((row) => ({
+    id: row.id,
+    parentId: row.parent_id,
+    body: row.body,
+    status: row.status === "removed" ? "removed" : "visible",
+    createdAt: row.created_at,
+    authorId: row.author_id,
+    nickname: row.nickname,
+    avatar: avatarUrl(row.avatar_path),
+    isMine: Boolean(row.is_mine),
+  }));
+}
+
+/** Posts a comment or a one-level reply and returns the new comment id. */
+export async function addNewsComment(
+  targetType: NewsCommentTarget,
+  targetId: string,
+  body: string,
+  parentId: string | null = null,
+): Promise<string> {
+  const { data, error } = await withTimeout(
+    supabase.rpc("news_add_comment", {
+      p_target_type: targetType,
+      p_target_id: targetId,
+      p_body: body,
+      p_parent_id: parentId,
+    }),
+    12000,
+  );
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("The comment could not be posted.");
+  return String(data);
+}
+
+/** Soft-removes a comment with replies, otherwise deletes the row. */
+export async function deleteNewsComment(commentId: string): Promise<boolean> {
+  const { data, error } = await withTimeout(
+    supabase.rpc("news_delete_comment", { p_comment_id: commentId }),
+    10000,
+  );
+  if (error) throw new Error(error.message);
+  return Boolean(data);
+}
+
+/** Reports an article, Flash, Short, comment or channel. */
+export async function reportNewsContent(
+  targetType: NewsReportTarget,
+  targetId: string,
+  reason: NewsReportReason,
+  details = "",
+): Promise<string> {
+  const { data, error } = await withTimeout(
+    supabase.rpc("news_report_content", {
+      p_target_type: targetType,
+      p_target_id: targetId,
+      p_reason: reason,
+      p_details: details || null,
+    }),
+    12000,
+  );
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("The report could not be sent.");
+  return String(data);
+}
+
+/** True only for accounts in public.news_admins. Never throws. */
+export async function loadNewsAdminState(): Promise<boolean> {
+  if (!supabaseConfigured) return false;
+
+  try {
+    const { data, error } = await withTimeout(supabase.rpc("news_is_admin"), 6000);
+    if (error) return false;
+    return Boolean(data);
+  } catch {
+    return false;
+  }
+}
+
+/** Admin-only moderation queue, newest open reports last. */
+export async function loadModerationQueue(
+  status: "open" | "reviewing" | "resolved" | "dismissed" | "all" = "open",
+): Promise<NewsReport[]> {
+  const { data, error } = await withTimeout(
+    supabase.rpc("news_moderation_queue", { p_status: status }),
+    10000,
+  );
+  if (error) throw new Error(error.message);
+
+  return ((data ?? []) as ReportRow[]).map((row) => ({
+    id: row.id,
+    targetType: row.target_type as NewsReportTarget,
+    targetId: row.target_id,
+    reason: row.reason as NewsReportReason,
+    details: row.details ?? "",
+    status: row.status as NewsReportStatus,
+    createdAt: row.created_at,
+    resolvedAt: row.resolved_at,
+    targetSnapshot: row.target_snapshot ?? "",
+    reporterNickname: row.reporter_nickname ?? "F App user",
+    targetAuthorNickname: row.target_author_nickname,
+  }));
+}
+
+/** Resolves a report and optionally hides/removes the reported content. */
+export async function resolveNewsReport(
+  reportId: string,
+  status: "resolved" | "dismissed",
+  action: "none" | "hide" | "remove" = "none",
+  note = "",
+): Promise<boolean> {
+  const { data, error } = await withTimeout(
+    supabase.rpc("news_resolve_report", {
+      p_report_id: reportId,
+      p_status: status,
+      p_action: action,
+      p_note: note || null,
+    }),
+    12000,
+  );
+  if (error) throw new Error(error.message);
+  return Boolean(data);
 }

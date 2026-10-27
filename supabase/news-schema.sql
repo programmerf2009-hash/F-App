@@ -2075,6 +2075,616 @@ grant execute on function public.news_toggle_saved_article(uuid) to authenticate
 revoke all on function public.news_toggle_short_reaction(uuid, text) from public, anon;
 grant execute on function public.news_toggle_short_reaction(uuid, text) to authenticated;
 
+-- ----------------------------------------------------------------------------
+-- 15. Comments and moderation
+-- ----------------------------------------------------------------------------
+-- Readers can discuss published articles, Flashes and Shorts. Comments are
+-- written and read through definer RPCs only: public nickname/avatar cards are
+-- exposed without opening the friend-only profiles table. Reports feed an
+-- admin-only moderation queue.
+
+create table if not exists public.news_comments (
+  id          uuid primary key default gen_random_uuid(),
+  target_type text not null,
+  target_id   uuid not null,
+  author_id   uuid not null references auth.users (id) on delete cascade,
+  parent_id   uuid references public.news_comments (id) on delete cascade,
+  body        text not null default '',
+  status      text not null default 'visible',
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  constraint news_comments_target_type
+    check (target_type in ('article', 'flash', 'short')),
+  constraint news_comments_status
+    check (status in ('visible', 'hidden', 'removed')),
+  constraint news_comments_body_len
+    check (char_length(body) <= 1000),
+  constraint news_comments_body_required
+    check (status = 'removed' or char_length(btrim(body)) between 1 and 1000)
+);
+
+create index if not exists news_comments_target_idx
+  on public.news_comments (target_type, target_id, created_at desc);
+create index if not exists news_comments_parent_idx
+  on public.news_comments (parent_id, created_at);
+create index if not exists news_comments_author_idx
+  on public.news_comments (author_id, created_at desc);
+
+create table if not exists public.news_reports (
+  id                uuid primary key default gen_random_uuid(),
+  reporter_id       uuid not null references auth.users (id) on delete cascade,
+  target_type       text not null,
+  target_id         uuid not null,
+  reason            text not null,
+  details           text not null default '',
+  target_snapshot   text not null default '',
+  target_author_id  uuid references auth.users (id) on delete set null,
+  status            text not null default 'open',
+  resolved_by       uuid references auth.users (id) on delete set null,
+  resolution_note   text not null default '',
+  resolved_at       timestamptz,
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now(),
+  constraint news_reports_target_type
+    check (target_type in ('article', 'flash', 'short', 'comment', 'channel')),
+  constraint news_reports_reason
+    check (reason in ('spam', 'abuse', 'misinformation', 'copyright', 'other')),
+  constraint news_reports_status
+    check (status in ('open', 'reviewing', 'resolved', 'dismissed')),
+  constraint news_reports_details_len
+    check (char_length(details) <= 500),
+  constraint news_reports_note_len
+    check (char_length(resolution_note) <= 500)
+);
+
+create unique index if not exists news_reports_one_open
+  on public.news_reports (reporter_id, target_type, target_id)
+  where status in ('open', 'reviewing');
+create index if not exists news_reports_queue_idx
+  on public.news_reports (status, created_at);
+create index if not exists news_reports_target_idx
+  on public.news_reports (target_type, target_id, created_at desc);
+
+-- A target is commentable/reportable only while it is publicly readable.
+create or replace function public.news_target_is_public(
+  p_target_type text,
+  p_target_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case
+    when p_target_type = 'article' then exists (
+      select 1
+      from public.news_articles a
+      join public.news_channels c on c.id = a.channel_id
+      where a.id = p_target_id
+        and a.status = 'published'
+        and c.archived_at is null
+    )
+    when p_target_type = 'flash' then exists (
+      select 1
+      from public.news_flashes f
+      join public.news_channels c on c.id = f.channel_id
+      where f.id = p_target_id
+        and f.status in ('published', 'archived')
+        and c.archived_at is null
+    )
+    when p_target_type = 'short' then exists (
+      select 1
+      from public.news_shorts s
+      join public.news_channels c on c.id = s.channel_id
+      where s.id = p_target_id
+        and s.status in ('published', 'archived')
+        and c.archived_at is null
+    )
+    else false
+  end;
+$$;
+
+-- Flat thread for one target: newest roots first, oldest replies first. Only
+-- nickname and avatar are exposed for other commenters.
+create or replace function public.news_comment_thread(
+  p_target_type text,
+  p_target_id uuid,
+  p_limit integer default 50
+)
+returns table (
+  id          uuid,
+  parent_id   uuid,
+  body        text,
+  status      text,
+  created_at  timestamptz,
+  author_id   uuid,
+  nickname    text,
+  avatar_path text,
+  is_mine     boolean
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_limit integer := greatest(1, least(coalesce(p_limit, 50), 100));
+begin
+  if auth.uid() is null then
+    raise exception 'Sign in to read comments' using errcode = '28000';
+  end if;
+
+  if not public.news_target_is_public(p_target_type, p_target_id) then
+    return;
+  end if;
+
+  return query
+  with roots as (
+    select c.id, c.created_at
+    from public.news_comments c
+    where c.target_type = p_target_type
+      and c.target_id = p_target_id
+      and c.parent_id is null
+      and c.status in ('visible', 'removed')
+    order by c.created_at desc
+    limit v_limit
+  ),
+  thread as (
+    select c.*
+    from public.news_comments c
+    join roots r on r.id = c.id
+    union all
+    select c.*
+    from public.news_comments c
+    join roots r on r.id = c.parent_id
+    where c.status in ('visible', 'removed')
+  )
+  select
+    t.id,
+    t.parent_id,
+    case when t.status = 'removed' then '' else t.body end,
+    t.status,
+    t.created_at,
+    t.author_id,
+    coalesce(p.nickname, 'F App user'),
+    p.avatar_path,
+    t.author_id = auth.uid()
+  from thread t
+  left join public.profiles p on p.id = t.author_id
+  left join public.news_comments parent_comment on parent_comment.id = t.parent_id
+  order by coalesce(parent_comment.created_at, t.created_at) desc, t.created_at asc;
+end;
+$$;
+
+create or replace function public.news_add_comment(
+  p_target_type text,
+  p_target_id uuid,
+  p_body text,
+  p_parent_id uuid default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid    uuid := auth.uid();
+  v_body   text := btrim(coalesce(p_body, ''));
+  v_parent uuid := null;
+  v_recent integer := 0;
+  v_id     uuid;
+begin
+  if v_uid is null then
+    raise exception 'Sign in to comment' using errcode = '28000';
+  end if;
+
+  if p_target_type is null or p_target_type not in ('article', 'flash', 'short') then
+    raise exception 'Unknown comment target' using errcode = '22023';
+  end if;
+
+  if not public.news_target_is_public(p_target_type, p_target_id) then
+    raise exception 'This story is not open for comments.' using errcode = 'P0002';
+  end if;
+
+  if char_length(v_body) < 1 or char_length(v_body) > 1000 then
+    raise exception 'Comments must be 1 to 1000 characters.' using errcode = '22023';
+  end if;
+
+  select count(*) into v_recent
+  from public.news_comments
+  where author_id = v_uid
+    and created_at > now() - interval '1 minute';
+
+  if v_recent >= 6 then
+    raise exception 'You are commenting too fast. Try again in a minute.' using errcode = '54000';
+  end if;
+
+  if p_parent_id is not null then
+    -- Replies are one level deep: a reply to a reply joins the root thread.
+    select coalesce(c.parent_id, c.id)
+    into v_parent
+    from public.news_comments c
+    where c.id = p_parent_id
+      and c.target_type = p_target_type
+      and c.target_id = p_target_id
+      and c.status = 'visible';
+
+    if v_parent is null then
+      raise exception 'The comment you replied to is no longer available.' using errcode = 'P0002';
+    end if;
+  end if;
+
+  insert into public.news_comments (
+    target_type, target_id, author_id, parent_id, body
+  )
+  values (
+    p_target_type, p_target_id, v_uid, v_parent, v_body
+  )
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+
+create or replace function public.news_delete_comment(p_comment_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid    uuid := auth.uid();
+  v_author uuid;
+  v_status text;
+begin
+  if v_uid is null then
+    raise exception 'Sign in to delete a comment' using errcode = '28000';
+  end if;
+
+  select author_id, status
+  into v_author, v_status
+  from public.news_comments
+  where id = p_comment_id;
+
+  if not found then
+    return false;
+  end if;
+
+  if v_author <> v_uid and not public.news_is_admin() then
+    raise exception 'You can only delete your own comment.' using errcode = '42501';
+  end if;
+
+  if v_status = 'removed' then
+    return true;
+  end if;
+
+  if exists (
+    select 1 from public.news_comments
+    where parent_id = p_comment_id and status = 'visible'
+  ) then
+    update public.news_comments
+      set status = 'removed', body = '', updated_at = now()
+      where id = p_comment_id;
+  else
+    delete from public.news_comments where id = p_comment_id;
+  end if;
+
+  return true;
+end;
+$$;
+
+-- Validate a report, snapshot enough context for the moderation queue, and
+-- make a repeat report from the same reader idempotent.
+create or replace function public.news_report_content(
+  p_target_type text,
+  p_target_id uuid,
+  p_reason text,
+  p_details text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid      uuid := auth.uid();
+  v_details  text := btrim(coalesce(p_details, ''));
+  v_snapshot text := '';
+  v_author   uuid := null;
+  v_existing uuid;
+  v_recent   integer := 0;
+  v_id       uuid;
+begin
+  if v_uid is null then
+    raise exception 'Sign in to report content' using errcode = '28000';
+  end if;
+
+  if p_target_type is null or p_target_type not in ('article', 'flash', 'short', 'comment', 'channel') then
+    raise exception 'Unknown report target' using errcode = '22023';
+  end if;
+
+  if p_reason is null or p_reason not in ('spam', 'abuse', 'misinformation', 'copyright', 'other') then
+    raise exception 'Choose a report reason.' using errcode = '22023';
+  end if;
+
+  if char_length(v_details) > 500 then
+    raise exception 'Report details must be 500 characters or fewer.' using errcode = '22023';
+  end if;
+
+  if p_target_type in ('article', 'flash', 'short') then
+    if not public.news_target_is_public(p_target_type, p_target_id) then
+      raise exception 'This content is not available to report.' using errcode = 'P0002';
+    end if;
+  elsif p_target_type = 'comment' then
+    select left(c.body, 240), c.author_id
+    into v_snapshot, v_author
+    from public.news_comments c
+    where c.id = p_target_id and c.status = 'visible';
+
+    if v_snapshot is null then
+      raise exception 'This comment is not available to report.' using errcode = 'P0002';
+    end if;
+  else
+    select c.name, c.owner_id
+    into v_snapshot, v_author
+    from public.news_channels c
+    where c.id = p_target_id and c.archived_at is null;
+
+    if v_snapshot is null then
+      raise exception 'This channel is not available to report.' using errcode = 'P0002';
+    end if;
+  end if;
+
+  if p_target_type = 'article' then
+    select left(a.title, 240), a.author_id
+    into v_snapshot, v_author
+    from public.news_articles a
+    where a.id = p_target_id;
+  elsif p_target_type = 'flash' then
+    select left(f.title, 240), f.author_id
+    into v_snapshot, v_author
+    from public.news_flashes f
+    where f.id = p_target_id;
+  elsif p_target_type = 'short' then
+    select left(s.caption, 240), s.author_id
+    into v_snapshot, v_author
+    from public.news_shorts s
+    where s.id = p_target_id;
+  end if;
+
+  select id into v_existing
+  from public.news_reports
+  where reporter_id = v_uid
+    and target_type = p_target_type
+    and target_id = p_target_id
+    and status in ('open', 'reviewing')
+  limit 1;
+
+  if v_existing is not null then
+    return v_existing;
+  end if;
+
+  select count(*) into v_recent
+  from public.news_reports
+  where reporter_id = v_uid
+    and created_at > now() - interval '1 day';
+
+  if v_recent >= 20 then
+    raise exception 'Too many reports today. Try again tomorrow.' using errcode = '54000';
+  end if;
+
+  insert into public.news_reports (
+    reporter_id, target_type, target_id, reason, details,
+    target_snapshot, target_author_id
+  )
+  values (
+    v_uid, p_target_type, p_target_id, p_reason, v_details,
+    coalesce(v_snapshot, ''), v_author
+  )
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+
+create or replace function public.news_moderation_queue(
+  p_status text default 'open'
+)
+returns table (
+  id                     uuid,
+  target_type            text,
+  target_id              uuid,
+  reason                 text,
+  details                text,
+  status                 text,
+  created_at             timestamptz,
+  resolved_at            timestamptz,
+  target_snapshot        text,
+  reporter_nickname      text,
+  target_author_nickname text
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_status text := coalesce(p_status, 'open');
+begin
+  if not public.news_is_admin() then
+    raise exception 'Moderator access required.' using errcode = '42501';
+  end if;
+
+  if v_status not in ('open', 'reviewing', 'resolved', 'dismissed', 'all') then
+    raise exception 'Unknown report status.' using errcode = '22023';
+  end if;
+
+  return query
+  select
+    r.id,
+    r.target_type,
+    r.target_id,
+    r.reason,
+    r.details,
+    r.status,
+    r.created_at,
+    r.resolved_at,
+    r.target_snapshot,
+    coalesce(rep.nickname, 'F App user'),
+    author.nickname
+  from public.news_reports r
+  left join public.profiles rep on rep.id = r.reporter_id
+  left join public.profiles author on author.id = r.target_author_id
+  where v_status = 'all' or r.status = v_status
+  order by
+    case when r.status in ('open', 'reviewing') then 0 else 1 end,
+    r.created_at asc
+  limit 100;
+end;
+$$;
+
+create or replace function public.news_resolve_report(
+  p_report_id uuid,
+  p_status text,
+  p_action text default 'none',
+  p_note text default null
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid          uuid := auth.uid();
+  v_target_type  text;
+  v_target_id    uuid;
+  v_reason       text;
+  v_current      text;
+  v_note         text := btrim(coalesce(p_note, ''));
+  v_action       text := coalesce(p_action, 'none');
+  v_audit_action text;
+begin
+  if not public.news_is_admin() then
+    raise exception 'Moderator access required.' using errcode = '42501';
+  end if;
+
+  if p_status is null or p_status not in ('resolved', 'dismissed') then
+    raise exception 'Close the report as resolved or dismissed.' using errcode = '22023';
+  end if;
+
+  if v_action not in ('none', 'hide', 'remove') then
+    raise exception 'Unknown moderation action.' using errcode = '22023';
+  end if;
+
+  if char_length(v_note) > 500 then
+    raise exception 'Moderation note must be 500 characters or fewer.' using errcode = '22023';
+  end if;
+
+  select target_type, target_id, reason, status
+  into v_target_type, v_target_id, v_reason, v_current
+  from public.news_reports
+  where id = p_report_id;
+
+  if not found then
+    raise exception 'Report not found.' using errcode = 'P0002';
+  end if;
+
+  if v_current in ('resolved', 'dismissed') then
+    return true;
+  end if;
+
+  if v_action <> 'none' then
+    if v_target_type = 'comment' then
+      if v_action = 'hide' then
+        update public.news_comments
+          set status = 'hidden', updated_at = now()
+          where id = v_target_id and status <> 'removed';
+      else
+        update public.news_comments
+          set status = 'removed', body = '', updated_at = now()
+          where id = v_target_id;
+      end if;
+    elsif v_target_type = 'article' then
+      update public.news_articles
+        set status = 'archived', updated_at = now()
+        where id = v_target_id and status <> 'removed';
+    elsif v_target_type = 'flash' then
+      update public.news_flashes
+        set status = 'archived', updated_at = now()
+        where id = v_target_id and status <> 'removed';
+    elsif v_target_type = 'short' then
+      update public.news_shorts
+        set status = 'archived', updated_at = now()
+        where id = v_target_id and status <> 'removed';
+    elsif v_target_type = 'channel' then
+      update public.news_channels
+        set archived_at = coalesce(archived_at, now()), updated_at = now()
+        where id = v_target_id;
+    end if;
+  end if;
+
+  update public.news_reports
+  set status = p_status,
+      resolved_by = v_uid,
+      resolution_note = left(v_note, 500),
+      resolved_at = now(),
+      updated_at = now()
+  where id = p_report_id;
+
+  v_audit_action := case
+    when v_action = 'none' then 'moderation.report_closed'
+    else 'moderation.content_' || v_action
+  end;
+
+  insert into public.news_audit_log (channel_id, actor_id, action, metadata)
+  values (
+    null,
+    v_uid,
+    v_audit_action,
+    jsonb_build_object(
+      'report_id', p_report_id,
+      'target_type', v_target_type,
+      'target_id', v_target_id,
+      'reason', v_reason,
+      'status', p_status,
+      'action', v_action
+    )
+  );
+
+  return true;
+end;
+$$;
+
+-- Row level security ------------------------------------------------------
+
+alter table public.news_comments enable row level security;
+alter table public.news_reports  enable row level security;
+
+-- No policies on purpose: reads and writes go through the definer RPCs above.
+-- This keeps author identity cards limited to nickname/avatar and prevents a
+-- reader from editing another reader's comment directly.
+
+-- Privileges --------------------------------------------------------------
+
+revoke all on table public.news_comments from authenticated, anon;
+revoke all on table public.news_reports  from authenticated, anon;
+
+revoke all on function public.news_target_is_public(text, uuid) from public, anon;
+revoke all on function public.news_comment_thread(text, uuid, integer) from public, anon;
+revoke all on function public.news_add_comment(text, uuid, text, uuid) from public, anon;
+revoke all on function public.news_delete_comment(uuid) from public, anon;
+revoke all on function public.news_report_content(text, uuid, text, text) from public, anon;
+revoke all on function public.news_moderation_queue(text) from public, anon;
+revoke all on function public.news_resolve_report(uuid, text, text, text) from public, anon;
+
+grant execute on function public.news_comment_thread(text, uuid, integer) to authenticated;
+grant execute on function public.news_add_comment(text, uuid, text, uuid) to authenticated;
+grant execute on function public.news_delete_comment(uuid) to authenticated;
+grant execute on function public.news_report_content(text, uuid, text, text) to authenticated;
+grant execute on function public.news_moderation_queue(text) to authenticated;
+grant execute on function public.news_resolve_report(uuid, text, text, text) to authenticated;
+
 notify pgrst, 'reload schema';
 
 

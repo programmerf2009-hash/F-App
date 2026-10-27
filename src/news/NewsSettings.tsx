@@ -10,6 +10,7 @@ import {
   MapPin,
   PlayCircle,
   RotateCcw,
+  ShieldAlert,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
@@ -38,6 +39,8 @@ interface Props {
   onOpenWeather: () => void;
   onOpenArticle: (articleId: string) => void;
   onRemoveSaved: (articleId: string) => void;
+  isAdmin?: boolean;
+  onOpenModeration?: () => void;
   notify: (message: string) => void;
 }
 
@@ -52,6 +55,8 @@ export function NewsSettings({
   onOpenWeather,
   onOpenArticle,
   onRemoveSaved,
+  isAdmin = false,
+  onOpenModeration,
   notify,
 }: Props) {
   const condition =
@@ -286,6 +291,37 @@ export function NewsSettings({
             </p>
           )}
         </section>
+
+        {isAdmin ? (
+          <section className="news-settings-section" aria-labelledby="settings-moderation">
+            <NewsSectionHead
+              eyebrow="Trust & safety"
+              title="Moderation"
+              action={<ShieldAlert size={18} strokeWidth={1.9} />}
+            />
+
+            <div className="news-settings-list">
+              <button
+                type="button"
+                className="news-settings-row"
+                onClick={onOpenModeration}
+              >
+                <span className="news-settings-row__icon news-settings-row__icon--alert">
+                  <ShieldAlert size={18} strokeWidth={2.1} />
+                </span>
+                <span className="news-settings-row__copy">
+                  <span className="news-settings-row__title">Reports queue</span>
+                  <span className="news-settings-row__text">
+                    Review reported posts, comments and channels.
+                  </span>
+                </span>
+                <span className="news-settings-row__end">
+                  <ChevronRight size={16} strokeWidth={2.2} />
+                </span>
+              </button>
+            </div>
+          </section>
+        ) : null}
 
         <section className="news-settings-section" aria-labelledby="settings-edition">
           <NewsSectionHead eyebrow="How this works" title="The news edition" />

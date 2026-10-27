@@ -22,6 +22,8 @@ import {
 } from "./NewsViews";
 import { CreateChannelSheet, WeatherSheet } from "./NewsSheets";
 import { ManageChannelSheet } from "./NewsManage";
+import { ReportSheet } from "./NewsComments";
+import { NewsModerationSheet } from "./NewsModeration";
 import {
   ArticleComposerSheet,
   FlashComposerSheet,
@@ -31,6 +33,7 @@ import { DEMO_ARTICLES, DEMO_CHANNELS, DEMO_FLASHES, DEMO_SHORTS } from "./news-
 import {
   createLiveChannel,
   loadMyNewsState,
+  loadNewsAdminState,
   loadNewsSnapshot,
   loadSavedArticles,
   newsErrorMessage,
@@ -59,6 +62,7 @@ import {
   type NewsArticle,
   type NewsChannel,
   type NewsPrefs,
+  type NewsReportTargetInput,
   type NewsTab,
 } from "./news-types";
 import "./news.css";
@@ -73,6 +77,8 @@ type SheetState =
   | { type: "weather" }
   | { type: "place" }
   | { type: "create" }
+  | { type: "moderation" }
+  | { type: "report"; target: NewsReportTargetInput }
   | { type: "flash"; channelId: string }
   | { type: "short"; channelId: string }
   | { type: "article"; channelId: string }
@@ -115,6 +121,7 @@ export function NewsApp({ session, onClose }: Props) {
   const [extraChannels, setExtraChannels] = useState<NewsChannel[]>([]);
   const [dataVersion, setDataVersion] = useState(0);
   const [live, setLive] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [initialLoading, setInitialLoading] = useState(supabaseConfigured);
 
   const [view, setView] = useState<ViewState>(null);
@@ -243,6 +250,16 @@ export function NewsApp({ session, onClose }: Props) {
   useEffect(() => {
     void loadLive();
   }, [loadLive]);
+
+  useEffect(() => {
+    let active = true;
+    void loadNewsAdminState().then((value) => {
+      if (active) setIsAdmin(value);
+    });
+    return () => {
+      active = false;
+    };
+  }, [session.id]);
 
   useEffect(() => {
     saveNewsPrefs(prefs);
@@ -554,6 +571,17 @@ export function NewsApp({ session, onClose }: Props) {
     setSheet({ type: "manage", channelId, tab });
   };
 
+  const openReport = useCallback(
+    (target: NewsReportTargetInput) => {
+      if (!live) {
+        notify("Reporting opens in the live edition.");
+        return;
+      }
+      setSheet({ type: "report", target });
+    },
+    [live, notify],
+  );
+
   const refreshAfterPublish = useCallback(() => {
     void loadLive();
   }, [loadLive]);
@@ -659,6 +687,8 @@ export function NewsApp({ session, onClose }: Props) {
             onOpenWeather={() => setSheet({ type: "weather" })}
             onOpenArticle={(id) => setView({ type: "article", id })}
             onRemoveSaved={toggleArticleSave}
+            isAdmin={isAdmin}
+            onOpenModeration={() => setSheet({ type: "moderation" })}
             notify={notify}
           />
         ) : null}
@@ -687,6 +717,7 @@ export function NewsApp({ session, onClose }: Props) {
       {article && articleChannel ? (
         <NewsArticleView
           key={article.id}
+          session={session}
           article={article}
           channel={articleChannel}
           related={articles
@@ -695,11 +726,14 @@ export function NewsApp({ session, onClose }: Props) {
           followed={followed.includes(article.channelId)}
           isOwn={articleChannel.isMine === true}
           saved={savedArticles.includes(article.id)}
+          live={live}
+          isAdmin={isAdmin}
           onToggleSave={() => toggleArticleSave(article.id)}
           onBack={() => setView(null)}
           onOpenChannel={(id) => setView({ type: "channel", id })}
           onOpenArticle={(id) => setView({ type: "article", id })}
           onToggleFollow={toggleFollow}
+          onReport={openReport}
         />
       ) : null}
 
@@ -722,6 +756,7 @@ export function NewsApp({ session, onClose }: Props) {
       {flash && flashChannel ? (
         <NewsFlashView
           key={flash.id}
+          session={session}
           flash={flash}
           channel={flashChannel}
           relatedArticles={articles
@@ -729,10 +764,13 @@ export function NewsApp({ session, onClose }: Props) {
             .slice(0, 1)}
           followed={followed.includes(flash.channelId)}
           isOwn={flashChannel.isMine === true}
+          liveEdition={live}
+          isAdmin={isAdmin}
           onBack={() => setView(null)}
           onOpenChannel={(id) => setView({ type: "channel", id })}
           onOpenArticle={(id) => setView({ type: "article", id })}
           onToggleFollow={toggleFollow}
+          onReport={openReport}
         />
       ) : null}
 
@@ -754,6 +792,24 @@ export function NewsApp({ session, onClose }: Props) {
             setView({ type: "channel", id });
           }}
           onToggleFollow={toggleFollow}
+        />
+      ) : null}
+
+      {sheet?.type === "moderation" ? (
+        <NewsModerationSheet
+          onClose={() => setSheet(null)}
+          notify={notify}
+        />
+      ) : null}
+
+      {sheet?.type === "report" ? (
+        <ReportSheet
+          target={sheet.target}
+          onClose={() => setSheet(null)}
+          onReported={() => {
+            setSheet(null);
+            notify("Report sent to the moderation desk.");
+          }}
         />
       ) : null}
 
