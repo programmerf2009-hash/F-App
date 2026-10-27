@@ -15,6 +15,8 @@ import {
   Share2,
   ShieldCheck,
   Sparkles,
+  Volume2,
+  VolumeX,
   X,
 } from "lucide-react";
 import type { Session } from "../lib/auth";
@@ -181,20 +183,29 @@ export function NewsArticleView({
                 );
               }
 
+              if (block.type === "video" && block.src) {
+                return (
+                  <figure className="news-reader__video-block" key={`${article.id}-v-${index}`}>
+                    <video
+                      className="news-reader__video"
+                      src={block.src}
+                      poster={block.poster}
+                      controls
+                      playsInline
+                      preload="metadata"
+                    />
+                    <figcaption>
+                      <span>{block.duration}</span>
+                      {block.caption}
+                    </figcaption>
+                  </figure>
+                );
+              }
+
               return (
                 <div className="news-reader__video" key={`${article.id}-v-${index}`}>
                   <img src={block.poster} alt="" loading="lazy" />
                   <span className="news-reader__video-shade" aria-hidden="true" />
-                  <button
-                    type="button"
-                    className="news-reader__video-play"
-                    onClick={() =>
-                      notify("Video playback connects to uploaded news media in the next build.")
-                    }
-                    aria-label="Play article video"
-                  >
-                    <Play size={22} strokeWidth={2} fill="currentColor" />
-                  </button>
                   <span className="news-reader__video-meta">
                     <span>{block.duration}</span>
                     {block.caption}
@@ -614,9 +625,23 @@ export function NewsFlashView({
   onToggleFollow,
 }: FlashViewProps) {
   const [playing, setPlaying] = useState(true);
+  const [muted, setMuted] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const live = isFlashLive(flash);
   const hoursLeft = flashHoursLeft(flash);
   const followUp = relatedArticles[0] ?? null;
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (playing) {
+      void video.play().catch(() => setPlaying(false));
+    } else {
+      video.pause();
+    }
+  }, [playing, flash.videoUrl]);
 
   return (
     <div className="news-overlay news-flash-view">
@@ -644,7 +669,25 @@ export function NewsFlashView({
 
       <div className="news-flash-view__stage">
         <div className={`news-flash-view__poster${playing ? " is-playing" : ""}`}>
-          <img src={flash.poster} alt="" />
+          {flash.videoUrl ? (
+            <video
+              ref={videoRef}
+              className="news-flash-view__video"
+              src={flash.videoUrl}
+              poster={flash.poster}
+              muted={muted}
+              loop
+              playsInline
+              preload="metadata"
+              onTimeUpdate={(event) => {
+                const video = event.currentTarget;
+                if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+                setProgress((video.currentTime / video.duration) * 100);
+              }}
+            />
+          ) : (
+            <img src={flash.poster} alt="" />
+          )}
           <span className="news-flash-view__shade" aria-hidden="true" />
           <span className={`news-flash-view__live${live ? "" : " is-archived"}`}>
             {live ? (
@@ -667,8 +710,27 @@ export function NewsFlashView({
               <Play size={26} strokeWidth={2} fill="currentColor" />
             )}
           </button>
-          <span className={`news-flash-view__progress${playing ? " is-playing" : ""}`}>
-            <span />
+          {flash.videoUrl ? (
+            <button
+              type="button"
+              className="news-flash-view__sound"
+              onClick={() => setMuted((value) => !value)}
+              aria-label={muted ? "Turn sound on" : "Mute flash"}
+              title={muted ? "Turn sound on" : "Mute"}
+            >
+              {muted ? (
+                <VolumeX size={16} strokeWidth={2.1} />
+              ) : (
+                <Volume2 size={16} strokeWidth={2.1} />
+              )}
+            </button>
+          ) : null}
+          <span
+            className={`news-flash-view__progress${
+              flash.videoUrl ? " is-recorded" : playing ? " is-playing" : ""
+            }`}
+          >
+            <span style={flash.videoUrl ? { width: `${progress}%` } : undefined} />
           </span>
         </div>
 

@@ -393,6 +393,7 @@ function mapFlash(row: FlashRow, mediaById: Map<string, MediaRow>): NewsFlash {
     views: Number(row.views ?? 0),
     category: asCategory(row.category),
     ...(row.expires_at ? { expiresAt: row.expires_at } : {}),
+    ...(row.video_url ? { videoUrl: row.video_url } : {}),
   };
 }
 
@@ -407,6 +408,7 @@ function mapShort(row: ShortRow, mediaById: Map<string, MediaRow>): NewsShort {
     likes: Number(row.like_count ?? 0),
     comments: Number(row.comment_count ?? 0),
     duration: formatDuration(row.duration_seconds),
+    ...(row.video_url ? { videoUrl: row.video_url } : {}),
   };
 }
 

@@ -59,7 +59,7 @@ export type ArticleBlock =
       poster: string;
       caption: string;
       duration: string;
-      /** A future recorded-video URL. The preview stays poster-only until then. */
+      /** Recorded video URL. Falls back to a poster preview when absent. */
       src?: string;
     };
 
@@ -91,6 +91,8 @@ export interface NewsFlash {
   category: NewsCategory;
   /** Optional ISO timestamp. When present it is authoritative over minutesAgo. */
   expiresAt?: string;
+  /** Recorded video URL. Present for published server flashes. */
+  videoUrl?: string;
 }
 
 export interface NewsShort {
@@ -102,6 +104,8 @@ export interface NewsShort {
   likes: number;
   comments: number;
   duration: string;
+  /** Recorded video URL. Present for published server shorts. */
+  videoUrl?: string;
 }
 
 export interface CreateChannelInput {

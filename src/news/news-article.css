@@ -214,6 +214,38 @@
   background: #101828;
 }
 
+.news-reader__video-block {
+  margin: 26px 0;
+}
+
+.news-reader__video-block video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 19px;
+  background: #101828;
+}
+
+.news-reader__video-block figcaption {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  color: var(--n-faint);
+  font-family: var(--n-sans);
+  font-size: 9.5px;
+  line-height: 1.4;
+}
+
+.news-reader__video-block figcaption span {
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: var(--n-paper-deep);
+  color: var(--n-ink-soft);
+  font-weight: 700;
+}
+
 .news-reader__video img {
   width: 100%;
   aspect-ratio: 16 / 9;

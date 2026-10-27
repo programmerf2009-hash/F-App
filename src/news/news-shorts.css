@@ -47,6 +47,16 @@
   transform: scale(1.02);
 }
 
+.news-short__media video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.news-short__progress.is-recorded > span {
+  animation: none;
+}
+
 .news-short__media.is-playing img {
   animation: news-short-kenburns 18s ease-in-out infinite alternate;
 }

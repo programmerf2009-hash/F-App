@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bookmark,
   ChevronUp,
@@ -7,6 +7,7 @@ import {
   Play,
   Share2,
   Volume2,
+  VolumeX,
 } from "lucide-react";
 import { ChannelAvatar, VerifiedBadge } from "./NewsChrome";
 import { formatCount, timeAgo, type NewsChannel, type NewsPrefs, type NewsShort } from "./news-types";
@@ -25,6 +26,22 @@ export function NewsShorts({ channels, shorts, prefs, onOpenChannel, notify }: P
   );
   const [liked, setLiked] = useState<string[]>([]);
   const [saved, setSaved] = useState<string[]>([]);
+  const [muted, setMuted] = useState(true);
+  const [progress, setProgress] = useState<Record<string, number>>({});
+  const videoRefs = useRef(new Map<string, HTMLVideoElement>());
+
+  useEffect(() => {
+    shorts.forEach((short) => {
+      const video = videoRefs.current.get(short.id);
+      if (!video) return;
+
+      if (short.id === playingId) {
+        void video.play().catch(() => setPlayingId(null));
+      } else {
+        video.pause();
+      }
+    });
+  }, [playingId, shorts]);
 
   const channelById = useMemo(
     () => new Map(channels.map((channel) => [channel.id, channel])),
@@ -60,7 +77,30 @@ export function NewsShorts({ channels, shorts, prefs, onOpenChannel, notify }: P
           return (
             <article className="news-short" key={short.id} aria-label={`News short: ${short.caption}`}>
               <div className={`news-short__media${isPlaying ? " is-playing" : ""}`}>
-                <img src={short.poster} alt="" loading={index === 0 ? "eager" : "lazy"} />
+                {short.videoUrl ? (
+                  <video
+                    ref={(element) => {
+                      if (element) videoRefs.current.set(short.id, element);
+                      else videoRefs.current.delete(short.id);
+                    }}
+                    src={short.videoUrl}
+                    poster={short.poster}
+                    muted={muted}
+                    loop
+                    playsInline
+                    preload={index === 0 ? "metadata" : "none"}
+                    onTimeUpdate={(event) => {
+                      const video = event.currentTarget;
+                      if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+                      setProgress((previous) => ({
+                        ...previous,
+                        [short.id]: (video.currentTime / video.duration) * 100,
+                      }));
+                    }}
+                  />
+                ) : (
+                  <img src={short.poster} alt="" loading={index === 0 ? "eager" : "lazy"} />
+                )}
               </div>
               <span className="news-short__shade" aria-hidden="true" />
 
@@ -133,12 +173,31 @@ export function NewsShorts({ channels, shorts, prefs, onOpenChannel, notify }: P
                   <small>Share</small>
                 </button>
 
-                <span className="news-short__action news-short__action--muted" aria-hidden="true">
-                  <span>
-                    <Volume2 size={20} strokeWidth={2} />
+                {short.videoUrl ? (
+                  <button
+                    type="button"
+                    className={`news-short__action${muted ? "" : " is-active"}`}
+                    onClick={() => setMuted((value) => !value)}
+                    aria-label={muted ? "Turn sound on" : "Mute short"}
+                    title={muted ? "Turn sound on" : "Mute"}
+                  >
+                    <span>
+                      {muted ? (
+                        <VolumeX size={20} strokeWidth={2} />
+                      ) : (
+                        <Volume2 size={20} strokeWidth={2} />
+                      )}
+                    </span>
+                    <small>{muted ? "Sound" : "On"}</small>
+                  </button>
+                ) : (
+                  <span className="news-short__action news-short__action--muted" aria-hidden="true">
+                    <span>
+                      <Volume2 size={20} strokeWidth={2} />
+                    </span>
+                    <small>Preview</small>
                   </span>
-                  <small>Preview</small>
-                </span>
+                )}
               </div>
 
               <div className="news-short__bottom">
@@ -170,8 +229,12 @@ export function NewsShorts({ channels, shorts, prefs, onOpenChannel, notify }: P
                 </div>
               </div>
 
-              <span className={`news-short__progress${isPlaying ? " is-playing" : ""}`}>
-                <span />
+              <span
+                className={`news-short__progress${
+                  short.videoUrl ? " is-recorded" : isPlaying ? " is-playing" : ""
+                }`}
+              >
+                <span style={short.videoUrl ? { width: `${progress[short.id] ?? 0}%` } : undefined} />
               </span>
             </article>
           );

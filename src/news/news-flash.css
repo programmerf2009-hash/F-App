@@ -82,6 +82,36 @@
   object-fit: cover;
 }
 
+.news-flash-view__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #101828;
+}
+
+.news-flash-view__sound {
+  position: absolute;
+  right: 14px;
+  bottom: 20px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 50%;
+  background: rgba(7, 13, 24, 0.52);
+  color: #ffffff;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+
+.news-flash-view__progress.is-recorded > span {
+  animation: none;
+}
+
 .news-flash-view__poster.is-playing > img {
   animation: news-short-kenburns 20s ease-in-out infinite alternate;
 }
