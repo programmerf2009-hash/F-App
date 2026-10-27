@@ -128,6 +128,7 @@ export function NewsApp({ session, onClose }: Props) {
   const [libraryChannels, setLibraryChannels] = useState<NewsChannel[]>([]);
   const [libraryLoading, setLibraryLoading] = useState(false);
   const engagementLoaded = useRef(false);
+  const engagementTouched = useRef(false);
 
   const [weather, setWeather] = useState<WeatherNow | null>(null);
   const [weatherStatus, setWeatherStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -223,6 +224,8 @@ export function NewsApp({ session, onClose }: Props) {
       if (!engagementLoaded.current) {
         engagementLoaded.current = true;
         void loadMyNewsState().then((engagement) => {
+          // A reader may have saved or reacted while the hydrate was in flight.
+          if (engagementTouched.current) return;
           setSavedArticles(engagement.savedArticles);
           setLikedShorts(engagement.likedShorts);
           setSavedShorts(engagement.savedShorts);
@@ -348,6 +351,7 @@ export function NewsApp({ session, onClose }: Props) {
 
   const toggleArticleSave = useCallback(
     (articleId: string) => {
+      engagementTouched.current = true;
       const wasSaved = savedArticles.includes(articleId);
       const next = !wasSaved;
       setSavedArticles((previous) => withEngagement(previous, articleId, next));
@@ -372,6 +376,7 @@ export function NewsApp({ session, onClose }: Props) {
 
   const changeShortReaction = useCallback(
     (shortId: string, kind: ShortReaction): Promise<boolean> => {
+      engagementTouched.current = true;
       const list = kind === "like" ? likedShorts : savedShorts;
       const wasActive = list.includes(shortId);
       const next = !wasActive;
