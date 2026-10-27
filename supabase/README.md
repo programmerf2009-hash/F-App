@@ -89,6 +89,18 @@ News data layer:
 2. Reload the app. The News masthead should switch from `PREVIEW EDITION` to
    `LIVE EDITION`.
 
+Engagement:
+
+1. `news_views`, `news_saved_articles` and `news_short_reactions` must answer
+   `200` with the anon key (they return `[]` for an anonymous reader because of
+   RLS). A `404` means section 14 has not been applied.
+2. Open a published story, close it, and open it again on the same day. The
+   reader's view counter should increase once, not twice.
+3. Save the story. **Settings → Saved stories** should list it, including after
+   a reload.
+4. Like and save a Short. Both states should survive a reload, and the like
+   counter should move by exactly one.
+
 Friends:
 
 1. Create an account on device A.
