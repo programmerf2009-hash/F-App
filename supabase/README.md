@@ -1,6 +1,6 @@
 # F App — Supabase setup
 
-## 1. Run the schema
+## 1. Run the base schema
 
 1. Open the Supabase project.
 2. Go to **SQL Editor → New query**.
@@ -18,7 +18,23 @@ The script creates:
 
 It is safe to run again if you need to update policies.
 
-## 2. Auth settings
+## 2. Run the News schema
+
+Do this **after** step 1, in the same SQL Editor:
+
+1. Open [`news-schema.sql`](./news-schema.sql) and copy the **entire** file.
+2. Paste it into a new query and press **Run**.
+3. The result should be `Success. No rows returned`.
+
+The News script is additive; it creates the `news_*` tables, RLS policies,
+feed/search RPCs, verification and transfer rules, and the public `news-media`
+bucket. It must be run after `schema.sql` because it references `profiles`.
+
+Re-running is safe: functions are replaced and policies are dropped before
+being recreated. Do not run an older copy of this file — the app calls the
+9-argument `news_article_feed` RPC.
+
+## 3. Auth settings
 
 Go to **Authentication → Sign In / Providers → Email**:
 
@@ -28,7 +44,7 @@ Go to **Authentication → Sign In / Providers → Email**:
 
 The app uses a synthetic address: `<nickname>@fapp.app`. No real email is sent.
 
-## 3. Environment variables
+## 4. Environment variables
 
 Local development — create `.env.local` in the repo root:
 
@@ -47,17 +63,25 @@ gh secret set VITE_SUPABASE_ANON_KEY
 The publishable/anon key is safe to expose. Never put a `service_role` key in
 the web app.
 
-## 4. Storage notes
+## 5. Storage notes
 
 - Avatars are public: `avatars/<userId>/avatar-<timestamp>.jpg`
 - Songs are private: `songs/<userId>/song-<timestamp>.<ext>`
 - Post media: `posts/<userId>/<postId>/<file>`
 - Story media: `stories/<userId>/<storyId>/<file>`
 - Friends read a private song through a signed URL; strangers cannot.
+- News covers and media go to the public `news-media` bucket.
 
-## 5. Verify
+## 6. Verify
 
-After running the schema:
+News data layer:
+
+1. Open `https://<project-ref>.supabase.co/rest/v1/news_channels?select=id&limit=1`
+   with the anon key. It must answer `200` (an empty array is fine), not `404`.
+2. Reload the app. The News masthead should switch from `PREVIEW EDITION` to
+   `LIVE EDITION`.
+
+Friends:
 
 1. Create an account on device A.
 2. Create another account on device B.
