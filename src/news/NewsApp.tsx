@@ -268,6 +268,20 @@ export function NewsApp({ session, onClose }: Props) {
     if (live) {
       try {
         await setNewsSubscription(channelId, session.id, nextFollow);
+        // Keep the snapshot count in step with the write, so the card does not
+        // show the pre-follow number until the next full load.
+        setSnapshot((previous) =>
+          previous
+            ? {
+                ...previous,
+                channels: previous.channels.map((item) =>
+                  item.id === channelId
+                    ? { ...item, subscribers: Math.max(0, item.subscribers + (nextFollow ? 1 : -1)) }
+                    : item,
+                ),
+              }
+            : previous,
+        );
         // The following feed is server-filtered, so refresh only after the
         // subscription write has landed.
         setDataVersion((value) => value + 1);
