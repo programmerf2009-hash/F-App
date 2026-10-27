@@ -1055,6 +1055,27 @@ const EMPTY_NEWS_STATE: MyNewsState = {
   savedShorts: [],
 };
 
+/**
+ * Engagement is optional: if the section has not been applied yet, PostgREST
+ * can take a long time to answer a missing relation. Never let that hold the
+ * edition or a saved-stories spinner hostage.
+ */
+function withTimeout<T>(value: PromiseLike<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Engagement request timed out.")), ms);
+    Promise.resolve(value).then(
+      (result) => {
+        clearTimeout(timer);
+        resolve(result);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 interface SavedArticleRow {
   article_id: string;
 }
@@ -1072,20 +1093,24 @@ interface ReactionRow {
 export async function loadMyNewsState(): Promise<MyNewsState> {
   if (!supabaseConfigured) return EMPTY_NEWS_STATE;
 
-  const [savedResult, reactionResult] = await Promise.all([
-    supabase.from("news_saved_articles").select("article_id"),
-    supabase.from("news_short_reactions").select("short_id, kind"),
-  ]);
+  try {
+    const [savedResult, reactionResult] = await Promise.all([
+      withTimeout(supabase.from("news_saved_articles").select("article_id"), 6000),
+      withTimeout(supabase.from("news_short_reactions").select("short_id, kind"), 6000),
+    ]);
 
-  if (savedResult.error || reactionResult.error) return EMPTY_NEWS_STATE;
+    if (savedResult.error || reactionResult.error) return EMPTY_NEWS_STATE;
 
-  const reactions = (reactionResult.data ?? []) as ReactionRow[];
+    const reactions = (reactionResult.data ?? []) as ReactionRow[];
 
-  return {
-    savedArticles: ((savedResult.data ?? []) as SavedArticleRow[]).map((row) => row.article_id),
-    likedShorts: reactions.filter((row) => row.kind === "like").map((row) => row.short_id),
-    savedShorts: reactions.filter((row) => row.kind === "save").map((row) => row.short_id),
-  };
+    return {
+      savedArticles: ((savedResult.data ?? []) as SavedArticleRow[]).map((row) => row.article_id),
+      likedShorts: reactions.filter((row) => row.kind === "like").map((row) => row.short_id),
+      savedShorts: reactions.filter((row) => row.kind === "save").map((row) => row.short_id),
+    };
+  } catch {
+    return EMPTY_NEWS_STATE;
+  }
 }
 
 /**
@@ -1100,10 +1125,13 @@ export async function registerNewsView(
   if (!supabaseConfigured) return null;
 
   try {
-    const { data, error } = await supabase.rpc("news_register_view", {
-      p_target_type: target,
-      p_target_id: id,
-    });
+    const { data, error } = await withTimeout(
+      supabase.rpc("news_register_view", {
+        p_target_type: target,
+        p_target_id: id,
+      }),
+      6000,
+    );
     if (error || data === null || data === undefined) return null;
     const value = Number(data);
     return Number.isFinite(value) ? value : null;
@@ -1114,9 +1142,12 @@ export async function registerNewsView(
 
 /** Persists a saved story and returns the new saved state. */
 export async function toggleSavedArticle(articleId: string): Promise<boolean> {
-  const { data, error } = await supabase.rpc("news_toggle_saved_article", {
-    p_article_id: articleId,
-  });
+  const { data, error } = await withTimeout(
+    supabase.rpc("news_toggle_saved_article", {
+      p_article_id: articleId,
+    }),
+    8000,
+  );
   if (error) throw new Error(error.message);
   return Boolean(data);
 }
@@ -1126,10 +1157,13 @@ export async function toggleShortReaction(
   shortId: string,
   kind: ShortReaction,
 ): Promise<boolean> {
-  const { data, error } = await supabase.rpc("news_toggle_short_reaction", {
-    p_short_id: shortId,
-    p_kind: kind,
-  });
+  const { data, error } = await withTimeout(
+    supabase.rpc("news_toggle_short_reaction", {
+      p_short_id: shortId,
+      p_kind: kind,
+    }),
+    8000,
+  );
   if (error) throw new Error(error.message);
   return Boolean(data);
 }
@@ -1145,21 +1179,27 @@ export interface SavedArticlesPage {
  * the caller can open a saved story whose newsroom is outside the top snapshot.
  */
 export async function loadSavedArticles(session: Session): Promise<SavedArticlesPage> {
-  const { data, error } = await supabase
-    .from("news_saved_articles")
-    .select("article_id")
-    .order("created_at", { ascending: false })
-    .limit(50);
+  const { data, error } = await withTimeout(
+    supabase
+      .from("news_saved_articles")
+      .select("article_id")
+      .order("created_at", { ascending: false })
+      .limit(50),
+    8000,
+  );
   if (error) throw new Error(error.message);
 
   const ids = ((data ?? []) as SavedArticleRow[]).map((row) => row.article_id);
   if (!ids.length) return { articles: [], channels: [] };
 
-  const { data: articleRows, error: articleError } = await supabase
-    .from("news_articles")
-    .select(ARTICLE_COLUMNS)
-    .in("id", ids)
-    .eq("status", "published");
+  const { data: articleRows, error: articleError } = await withTimeout(
+    supabase
+      .from("news_articles")
+      .select(ARTICLE_COLUMNS)
+      .in("id", ids)
+      .eq("status", "published"),
+    8000,
+  );
   if (articleError) throw new Error(articleError.message);
 
   const rows = (articleRows ?? []) as ArticleRow[];

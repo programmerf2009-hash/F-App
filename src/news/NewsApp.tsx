@@ -127,6 +127,7 @@ export function NewsApp({ session, onClose }: Props) {
   const [libraryArticles, setLibraryArticles] = useState<NewsArticle[]>([]);
   const [libraryChannels, setLibraryChannels] = useState<NewsChannel[]>([]);
   const [libraryLoading, setLibraryLoading] = useState(false);
+  const engagementLoaded = useRef(false);
 
   const [weather, setWeather] = useState<WeatherNow | null>(null);
   const [weatherStatus, setWeatherStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -209,20 +210,24 @@ export function NewsApp({ session, onClose }: Props) {
     }
 
     try {
-      const [next, engagement] = await Promise.all([
-        loadNewsSnapshot(session),
-        loadMyNewsState(),
-      ]);
+      const next = await loadNewsSnapshot(session);
       setSnapshot(next);
       setFollowed(next.followed);
-      setSavedArticles(engagement.savedArticles);
-      setLikedShorts(engagement.likedShorts);
-      setSavedShorts(engagement.savedShorts);
       if (next.prefs) {
         setPrefs((previous) => ({ ...previous, ...next.prefs }));
       }
       setLive(true);
       setDataVersion((value) => value + 1);
+
+      // Engagement is optional and must never delay the edition itself.
+      if (!engagementLoaded.current) {
+        engagementLoaded.current = true;
+        void loadMyNewsState().then((engagement) => {
+          setSavedArticles(engagement.savedArticles);
+          setLikedShorts(engagement.likedShorts);
+          setSavedShorts(engagement.savedShorts);
+        });
+      }
     } catch {
       // Missing schema or offline: keep the local-first preview edition.
       setSnapshot(null);
