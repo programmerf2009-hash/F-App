@@ -382,6 +382,11 @@
   padding: 10px 12px 16px;
 }
 
+/* The drawer header already announces the section; drop the inner heading */
+.news-short__drawer .news-comments__head {
+  display: none;
+}
+
 @media (min-width: 700px) {
   .news-shorts {
     padding: 14px 0 0;
