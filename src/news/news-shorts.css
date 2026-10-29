@@ -400,7 +400,7 @@
     box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
   }
 
-  /* Video keeps the centre-left slot; details and actions move beside it */
+  /* Video keeps the centre slot; details and actions move beside it */
   .news-short {
     display: grid;
     grid-template-columns: minmax(0, 470px) minmax(0, 1fr);
@@ -412,6 +412,11 @@
     border-radius: 22px;
   }
 
+  /* The panel repeats this info, so keep the video clean on desktop */
+  .news-short__bottom {
+    display: none;
+  }
+
   .news-short__rail {
     display: none;
   }
@@ -419,7 +424,8 @@
   .news-short__panel {
     display: flex;
     flex-direction: column;
-    gap: 13px;
+    justify-content: center;
+    gap: 12px;
     min-width: 0;
     min-height: 0;
     padding: 8px 4px;
@@ -485,7 +491,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin-top: auto;
+    margin-top: 4px;
   }
 
   .news-short__panel-foot {
@@ -520,5 +526,24 @@
     right: 20px;
     bottom: 10px;
     left: 20px;
+  }
+}
+
+/* Wide desktops: keep the video truly centred with the panel beside it */
+@media (min-width: 1200px) {
+  .news-shorts__feed {
+    width: min(1240px, 100%);
+  }
+
+  .news-short {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 470px) minmax(0, 1fr);
+    padding: 28px 30px;
+  }
+
+  .news-short__panel {
+    grid-column: 3;
+    align-self: center;
+    justify-self: center;
+    width: min(350px, 100%);
   }
 }

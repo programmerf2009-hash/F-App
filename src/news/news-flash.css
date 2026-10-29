@@ -449,14 +449,26 @@
 
 @media (min-width: 700px) {
   .news-flash-view__stage {
-    display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-    align-content: start;
+    display: flex;
+    align-items: flex-start;
     width: min(1120px, 100%);
     margin: 0 auto;
     padding: 22px;
-    gap: 22px;
+    gap: 26px;
     overflow-y: auto;
+  }
+
+  .news-flash-view__player {
+    position: sticky;
+    top: 4px;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .news-flash-view__side {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-top: 4px;
   }
 
   .news-flash-view__poster {
@@ -467,8 +479,9 @@
   }
 
   .news-flash-view__copy {
-    align-self: center;
-    padding: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0 0 10px;
   }
 
   .news-flash-view__copy h1 {

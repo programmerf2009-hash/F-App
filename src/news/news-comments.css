@@ -448,7 +448,8 @@
 }
 
 .news-flash-view__comments {
-  padding: 0 17px 34px;
+  padding: 16px 17px 34px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
 }
 
 .news-comments--dark .news-comments__error {
@@ -874,10 +875,10 @@
 
 @media (min-width: 700px) {
   .news-flash-view__comments {
-    grid-column: 1 / -1;
-    width: min(760px, 100%);
-    margin: 0 auto;
-    padding: 0 0 34px;
+    width: 100%;
+    margin: 4px 0 0;
+    padding: 14px 0 34px;
+    border-top: 1px solid rgba(255, 255, 255, 0.09);
   }
 
   .news-comments__head h2 {

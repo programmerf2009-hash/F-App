@@ -756,6 +756,7 @@ export function NewsFlashView({
       </div>
 
       <div className="news-flash-view__stage">
+        <div className="news-flash-view__player">
         <div
           ref={posterRef}
           className={`news-flash-view__poster${playing ? " is-playing" : ""}`}
@@ -841,7 +842,9 @@ export function NewsFlashView({
             <span style={flash.videoUrl ? { width: `${progress}%` } : undefined} />
           </span>
         </div>
+        </div>
 
+        <div className="news-flash-view__side">
         <div className="news-flash-view__copy">
           <div className="news-flash-view__eyebrow">
             <span>Flash</span>
@@ -934,6 +937,7 @@ export function NewsFlashView({
             dark
             onReport={onReport}
           />
+        </div>
         </div>
       </div>
 
