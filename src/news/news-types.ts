@@ -103,6 +103,7 @@ export interface NewsShort {
   caption: string;
   poster: string;
   minutesAgo: number;
+  views: number;
   likes: number;
   comments: number;
   duration: string;

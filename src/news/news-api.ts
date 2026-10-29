@@ -166,6 +166,7 @@ interface ShortRow {
   video_url: string | null;
   poster_url: string | null;
   duration_seconds: number;
+  views: number;
   like_count: number;
   comment_count: number;
   published_at: string | null;
@@ -413,6 +414,7 @@ function mapShort(row: ShortRow, mediaById: Map<string, MediaRow>): NewsShort {
     caption: row.caption,
     poster: row.poster_url ?? mediaPoster(media) ?? NEWS_IMAGES.technology,
     minutesAgo: minutesSince(row.published_at),
+    views: Number(row.views ?? 0),
     likes: Number(row.like_count ?? 0),
     comments: Number(row.comment_count ?? 0),
     duration: formatDuration(row.duration_seconds),
@@ -529,7 +531,7 @@ export async function loadNewsSnapshot(session: Session): Promise<NewsSnapshot> 
     supabase
       .from("news_shorts")
       .select(
-        "id, channel_id, caption, video_media_id, video_url, poster_url, duration_seconds, like_count, comment_count, published_at",
+        "id, channel_id, caption, video_media_id, video_url, poster_url, duration_seconds, views, like_count, comment_count, published_at",
       )
       .eq("status", "published")
       .order("published_at", { ascending: false })

@@ -11,6 +11,8 @@ import {
   Flag,
   LoaderCircle,
   MapPin,
+  Maximize2,
+  Minimize2,
   Play,
   Search,
   Share2,
@@ -675,7 +677,9 @@ export function NewsFlashView({
   const [muted, setMuted] = useState(true);
   const [progress, setProgress] = useState(0);
   const [views, setViews] = useState(flash.views);
+  const [fullscreen, setFullscreen] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const posterRef = useRef<HTMLDivElement | null>(null);
   const live = isFlashLive(flash);
   const hoursLeft = flashHoursLeft(flash);
   const followUp = relatedArticles[0] ?? null;
@@ -707,6 +711,26 @@ export function NewsFlashView({
     if (video) video.muted = muted;
   }, [muted, flash.videoUrl]);
 
+  useEffect(() => {
+    const sync = () => setFullscreen(document.fullscreenElement === posterRef.current);
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    const poster = posterRef.current;
+    if (!poster) return;
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else if (poster.requestFullscreen) {
+        await poster.requestFullscreen();
+      }
+    } catch {
+      // Fullscreen can be refused; the in-page player stays usable either way.
+    }
+  };
+
   return (
     <div className="news-overlay news-flash-view">
       <div className="news-flash-view__top">
@@ -732,7 +756,10 @@ export function NewsFlashView({
       </div>
 
       <div className="news-flash-view__stage">
-        <div className={`news-flash-view__poster${playing ? " is-playing" : ""}`}>
+        <div
+          ref={posterRef}
+          className={`news-flash-view__poster${playing ? " is-playing" : ""}`}
+        >
           {flash.videoUrl ? (
             <video
               ref={videoRef}
@@ -786,6 +813,23 @@ export function NewsFlashView({
                 <VolumeX size={16} strokeWidth={2.1} />
               ) : (
                 <Volume2 size={16} strokeWidth={2.1} />
+              )}
+            </button>
+          ) : null}
+          {flash.videoUrl ? (
+            <button
+              type="button"
+              className="news-flash-view__fullscreen"
+              onClick={() => {
+                void toggleFullscreen();
+              }}
+              aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+              title={fullscreen ? "Exit fullscreen" : "Fullscreen"}
+            >
+              {fullscreen ? (
+                <Minimize2 size={16} strokeWidth={2.1} />
+              ) : (
+                <Maximize2 size={16} strokeWidth={2.1} />
               )}
             </button>
           ) : null}

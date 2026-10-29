@@ -179,6 +179,17 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   transform: translate(-50%, -50%);
+  transition: opacity 0.22s, background 0.18s;
+}
+
+/* While the flash plays the pause glyph steps aside; hover or focus brings it back. */
+.news-flash-view__poster.is-playing .news-flash-view__play {
+  opacity: 0;
+}
+
+.news-flash-view__poster:hover .news-flash-view__play.is-playing,
+.news-flash-view__poster.is-playing .news-flash-view__play:focus-visible {
+  opacity: 0.9;
 }
 
 .news-flash-view__pause {
@@ -186,6 +197,35 @@
   height: 18px;
   border-right: 4px solid currentColor;
   border-left: 4px solid currentColor;
+}
+
+.news-flash-view__fullscreen {
+  position: absolute;
+  right: 14px;
+  bottom: 60px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 50%;
+  background: rgba(7, 13, 24, 0.52);
+  color: #ffffff;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+
+.news-flash-view__poster:fullscreen {
+  aspect-ratio: auto;
+  max-height: none;
+  border-radius: 0;
+}
+
+.news-flash-view__poster:fullscreen .news-flash-view__video,
+.news-flash-view__poster:fullscreen > img {
+  object-fit: contain;
 }
 
 .news-flash-view__progress {
