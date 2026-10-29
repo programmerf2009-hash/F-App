@@ -42,6 +42,11 @@
   background: #101828;
 }
 
+/* Balances the rail on desktop so the video sits truly centred */
+.news-short__spacer {
+  display: none;
+}
+
 .news-short__media {
   position: absolute;
   inset: 0;
@@ -222,54 +227,6 @@
   pointer-events: none;
 }
 
-/* Desktop side panel: details stay off the video */
-.news-short__panel {
-  display: none;
-}
-
-.news-short__pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 13px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  color: #ffffff;
-  transition: background 0.16s, border-color 0.16s;
-}
-
-.news-short__pill > span {
-  display: grid;
-  place-items: center;
-}
-
-.news-short__pill small {
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 10.5px;
-  font-weight: 650;
-}
-
-.news-short__pill:hover {
-  border-color: rgba(255, 255, 255, 0.26);
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.news-short__pill.is-active {
-  border-color: rgba(255, 122, 142, 0.5);
-  background: rgba(255, 122, 142, 0.14);
-  color: #ff7a8e;
-}
-
-.news-short__pill.is-active small {
-  color: #ffb3c0;
-}
-
-.news-short__pill.is-disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
 .news-short__bottom {
   position: absolute;
   right: 70px;
@@ -387,119 +344,102 @@
   }
 }
 
+/* Instagram-style drawer: comments slide in from the right while the video keeps playing */
+.news-short__drawer {
+  display: none;
+}
+
+.news-short__drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font-size: 13px;
+  letter-spacing: 0.03em;
+}
+
+.news-short__drawer-close {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+.news-short__drawer-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.news-short__drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 12px 16px;
+}
+
 @media (min-width: 700px) {
   .news-shorts {
     padding: 14px 0 0;
   }
 
   .news-shorts__feed {
-    width: min(940px, 100%);
+    width: min(1100px, 100%);
     height: calc(100% - 14px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 26px 26px 0 0;
     box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
   }
 
-  /* Video keeps the centre slot; details and actions move beside it */
+  /* Centred video with the action rail beside it, YouTube/Instagram style */
   .news-short {
-    display: grid;
-    grid-template-columns: minmax(0, 470px) minmax(0, 1fr);
-    gap: 26px;
-    padding: 26px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 24px;
+  }
+
+  .news-short__spacer {
+    display: block;
+    flex: 0 0 64px;
   }
 
   .news-short__stage {
+    flex: none;
+    width: min(470px, 78%);
+    height: 96%;
     border-radius: 22px;
   }
 
-  /* The panel repeats this info, so keep the video clean on desktop */
-  .news-short__bottom {
-    display: none;
-  }
-
   .news-short__rail {
-    display: none;
-  }
-
-  .news-short__panel {
+    position: static;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    gap: 12px;
-    min-width: 0;
-    min-height: 0;
-    padding: 8px 4px;
+    gap: 14px;
+    flex: none;
   }
 
-  .news-short__panel-channel {
+  .news-short__drawer {
     display: flex;
-    align-items: center;
-    gap: 11px;
-    max-width: 100%;
-    color: #ffffff;
-    text-align: left;
-  }
-
-  .news-short__panel-channel > span:last-child {
-    display: grid;
-    gap: 3px;
-    min-width: 0;
-  }
-
-  .news-short__panel-name {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 14px;
-    font-weight: 750;
-  }
-
-  .news-short__panel-handle {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    color: rgba(220, 232, 255, 0.6);
-    font-size: 10.5px;
-  }
-
-  .news-short__panel-caption {
-    margin: 0;
-    color: rgba(255, 255, 255, 0.95);
-    font-size: 15.5px;
-    line-height: 1.45;
-  }
-
-  .news-short__panel-stats {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 7px 16px;
-    padding: 9px 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.09);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
-  }
-
-  .news-short__panel-stats span {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    color: rgba(220, 232, 255, 0.66);
-    font-size: 11px;
-    font-weight: 600;
-  }
-
-  .news-short__panel-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 4px;
-  }
-
-  .news-short__panel-foot {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: rgba(228, 239, 255, 0.55);
-    font-size: 9.5px;
+    flex-direction: column;
+    position: absolute;
+    top: 24px;
+    bottom: 24px;
+    right: 24px;
+    width: min(350px, 30%);
+    z-index: 30;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 18px;
+    background: rgba(9, 15, 27, 0.94);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: -18px 30px 60px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
   }
 
   .news-short__top {
@@ -510,7 +450,7 @@
 
   .news-short__bottom {
     right: 24px;
-    bottom: 30px;
+    bottom: 26px;
     left: 24px;
   }
 
@@ -529,21 +469,9 @@
   }
 }
 
-/* Wide desktops: keep the video truly centred with the panel beside it */
+/* Wide desktops keep the video centred while shorts scroll */
 @media (min-width: 1200px) {
   .news-shorts__feed {
     width: min(1240px, 100%);
-  }
-
-  .news-short {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 470px) minmax(0, 1fr);
-    padding: 28px 30px;
-  }
-
-  .news-short__panel {
-    grid-column: 3;
-    align-self: center;
-    justify-self: center;
-    width: min(350px, 100%);
   }
 }

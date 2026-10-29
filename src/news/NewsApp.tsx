@@ -675,9 +675,13 @@ export function NewsApp({ session, onClose }: Props) {
             prefs={prefs}
             liked={likedShorts}
             saved={savedShorts}
+            session={session}
+            live={live}
+            isAdmin={isAdmin}
             onToggleReaction={changeShortReaction}
             onOpenChannel={(id) => setView({ type: "channel", id })}
             onOpenComments={(shortId) => setSheet({ type: "short-comments", shortId })}
+            onReport={openReport}
           />
         ) : null}
 
