@@ -66,6 +66,7 @@ interface CommentsProps {
   live: boolean;
   isAdmin?: boolean;
   dark?: boolean;
+  embedded?: boolean;
   onReport: (target: NewsReportTargetInput) => void;
 }
 
@@ -80,6 +81,7 @@ export function NewsComments({
   live,
   isAdmin = false,
   dark = false,
+  embedded = false,
   onReport,
 }: CommentsProps) {
   const [comments, setComments] = useState<NewsComment[]>([]);
@@ -265,7 +267,12 @@ export function NewsComments({
   );
 
   return (
-    <section className={`news-comments${dark ? " news-comments--dark" : ""}`} aria-labelledby={`comments-${targetId}`}>
+    <section
+      className={`news-comments${dark ? " news-comments--dark" : ""}${
+        embedded ? " news-comments--embedded" : ""
+      }`}
+      aria-labelledby={`comments-${targetId}`}
+    >
       <header className="news-comments__head">
         <div>
           <p className="news-comments__eyebrow">Reader desk</p>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
 import type { Session } from "../lib/auth";
+import { Sheet } from "../components/Sheet";
 import { PlaceSheet } from "../app/PlaceSheet";
 import {
   getPosition,
@@ -22,7 +23,7 @@ import {
 } from "./NewsViews";
 import { CreateChannelSheet, WeatherSheet } from "./NewsSheets";
 import { ManageChannelSheet } from "./NewsManage";
-import { ReportSheet } from "./NewsComments";
+import { NewsComments, ReportSheet } from "./NewsComments";
 import { NewsModerationSheet } from "./NewsModeration";
 import {
   ArticleComposerSheet,
@@ -78,7 +79,8 @@ type SheetState =
   | { type: "place" }
   | { type: "create" }
   | { type: "moderation" }
-  | { type: "report"; target: NewsReportTargetInput }
+  | { type: "short-comments"; shortId: string }
+  | { type: "report"; target: NewsReportTargetInput; returnTo?: { type: "short-comments"; shortId: string } }
   | { type: "flash"; channelId: string }
   | { type: "short"; channelId: string }
   | { type: "article"; channelId: string }
@@ -572,12 +574,15 @@ export function NewsApp({ session, onClose }: Props) {
   };
 
   const openReport = useCallback(
-    (target: NewsReportTargetInput) => {
+    (
+      target: NewsReportTargetInput,
+      returnTo?: { type: "short-comments"; shortId: string },
+    ) => {
       if (!live) {
         notify("Reporting opens in the live edition.");
         return;
       }
-      setSheet({ type: "report", target });
+      setSheet({ type: "report", target, returnTo });
     },
     [live, notify],
   );
@@ -672,6 +677,7 @@ export function NewsApp({ session, onClose }: Props) {
             saved={savedShorts}
             onToggleReaction={changeShortReaction}
             onOpenChannel={(id) => setView({ type: "channel", id })}
+            onOpenComments={(shortId) => setSheet({ type: "short-comments", shortId })}
           />
         ) : null}
 
@@ -802,12 +808,32 @@ export function NewsApp({ session, onClose }: Props) {
         />
       ) : null}
 
+      {sheet?.type === "short-comments" ? (
+        <Sheet
+          title="Short discussion"
+          subtitle="Reader comments under this news short."
+          onClose={() => setSheet(null)}
+        >
+          <NewsComments
+            targetType="short"
+            targetId={sheet.shortId}
+            session={session}
+            live={live}
+            isAdmin={isAdmin}
+            embedded
+            onReport={(target) =>
+              openReport(target, { type: "short-comments", shortId: sheet.shortId })
+            }
+          />
+        </Sheet>
+      ) : null}
+
       {sheet?.type === "report" ? (
         <ReportSheet
           target={sheet.target}
-          onClose={() => setSheet(null)}
+          onClose={() => setSheet(sheet.returnTo ?? null)}
           onReported={() => {
-            setSheet(null);
+            setSheet(sheet.returnTo ?? null);
             notify("Report sent to the moderation desk.");
           }}
         />

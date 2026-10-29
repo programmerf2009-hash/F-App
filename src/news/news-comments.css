@@ -1,5 +1,20 @@
 /* Reader comments, report sheet and moderation queue */
 
+.news-comments--embedded {
+  max-width: none;
+  margin: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.news-comments--embedded .news-comments__mark {
+  display: none;
+}
+
+.news-comments--embedded .news-comments__eyebrow {
+  margin-top: 2px;
+}
+
 .news-comments {
   max-width: 680px;
   margin: 30px auto 0;

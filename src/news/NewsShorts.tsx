@@ -3,6 +3,7 @@ import {
   Bookmark,
   ChevronUp,
   Heart,
+  MessageCircle,
   Pause,
   Play,
   Share2,
@@ -21,6 +22,7 @@ interface Props {
   saved: string[];
   onToggleReaction: (shortId: string, kind: "like" | "save") => Promise<boolean>;
   onOpenChannel: (channelId: string) => void;
+  onOpenComments: (shortId: string) => void;
 }
 
 export function NewsShorts({
@@ -31,6 +33,7 @@ export function NewsShorts({
   saved,
   onToggleReaction,
   onOpenChannel,
+  onOpenComments,
 }: Props) {
   const [playingId, setPlayingId] = useState<string | null>(
     prefs.autoplay ? (shorts[0]?.id ?? null) : null,
@@ -191,6 +194,21 @@ export function NewsShorts({
                     />
                   </span>
                   <small>Save</small>
+                </button>
+
+                <button
+                  type="button"
+                  className="news-short__action"
+                  onClick={() => {
+                    setPlayingId(null);
+                    onOpenComments(short.id);
+                  }}
+                  aria-label="Read this short's comments"
+                >
+                  <span>
+                    <MessageCircle size={21} strokeWidth={2} />
+                  </span>
+                  <small>Comments</small>
                 </button>
 
                 <button
