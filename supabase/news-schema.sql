@@ -2740,10 +2740,17 @@ create policy "news_push_own_delete"
   on public.news_push_subscriptions for delete to authenticated
   using (user_id = auth.uid());
 
--- Reads happen only through the service role inside the Edge Function; a
--- database leak must never expose the endpoints of other readers.
-revoke select on table public.news_push_subscriptions from authenticated, anon;
-revoke update on table public.news_push_subscriptions from anon;
+-- Readers see only their own endpoints. The SELECT grant is required because
+-- PostgREST's upsert (ON CONFLICT) and delete filters read the key columns;
+-- without it both operations fail with "permission denied".
+drop policy if exists "news_push_own_read" on public.news_push_subscriptions;
+create policy "news_push_own_read"
+  on public.news_push_subscriptions for select to authenticated
+  using (user_id = auth.uid());
+
+revoke all on table public.news_push_subscriptions from anon;
+grant select, insert, update, delete on table public.news_push_subscriptions
+  to authenticated;
 
 notify pgrst, 'reload schema';
 
