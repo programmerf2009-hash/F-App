@@ -10,10 +10,11 @@ in the Supabase SQL editor. It adds the table, RLS policies and grants.
 
 ## 2. Edge Function
 
-Deploy the sender:
+Deploy the sender (current deployed slug: `rapid-responder`, kept because it was
+first created from the dashboard template):
 
 ```
-supabase functions deploy news-push
+supabase functions deploy rapid-responder
 ```
 
 The function must run with JWT verification off or on — it verifies the caller

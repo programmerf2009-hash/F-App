@@ -14,6 +14,12 @@ const VAPID_PUBLIC_KEY =
 
 const SW_PATH = `${import.meta.env.BASE_URL}sw.js`;
 
+/**
+ * Deployed Edge Function slug. The function was first deployed from the
+ * dashboard template under this name; it carries the news-push handler.
+ */
+const PUSH_FUNCTION = "rapid-responder";
+
 export type PushStatus = "unsupported" | "denied" | "off" | "on";
 
 function pushSupported(): boolean {
@@ -148,7 +154,7 @@ export async function sendBreakingPush(input: {
 }): Promise<boolean> {
   if (!supabaseConfigured) return false;
   try {
-    const { error } = await supabase.functions.invoke("news-push", { body: input });
+    const { error } = await supabase.functions.invoke(PUSH_FUNCTION, { body: input });
     return !error;
   } catch {
     return false;
