@@ -61,6 +61,10 @@ function statusFromPermission(permission: NotificationPermission): PushStatus {
 /**
  * Best-effort current state for the Settings card. Never throws: an
  * unregistered worker or a missing database row is not a fatal state.
+ *
+ * A browser subscription alone is not enough — the endpoint must also exist
+ * in the database, otherwise the sender has nobody to deliver to. Without
+ * this check the card could say "On" while nothing was saved.
  */
 export async function newsPushStatus(): Promise<{ status: PushStatus; subscribed: boolean }> {
   if (!pushSupported() || !supabaseConfigured) {
@@ -68,10 +72,23 @@ export async function newsPushStatus(): Promise<{ status: PushStatus; subscribed
   }
   const permission = Notification.permission;
   const subscription = await currentSubscription();
-  return {
-    status: subscription ? "on" : statusFromPermission(permission),
-    subscribed: Boolean(subscription),
-  };
+  if (!subscription) {
+    return { status: statusFromPermission(permission), subscribed: false };
+  }
+
+  const { data, error } = await supabase
+    .from("news_push_subscriptions")
+    .select("endpoint")
+    .eq("endpoint", subscription.endpoint)
+    .maybeSingle();
+
+  if (error || !data) {
+    // The browser is subscribed but the server has no row: treat this as off
+    // so the reader can enable it again and persist the endpoint.
+    return { status: "off", subscribed: false };
+  }
+
+  return { status: "on", subscribed: true };
 }
 
 /** Asks the reader for permission, subscribes and stores the endpoint. */
@@ -121,6 +138,7 @@ export async function enableNewsPush(session: Session): Promise<
     { onConflict: "endpoint" },
   );
   if (error) {
+    console.error("news push subscription save failed", error);
     return { ok: false, error: "Push could not be saved on the server." };
   }
 
