@@ -382,15 +382,15 @@ export function AuthScreen({ onAuthenticated }: Props) {
           )}
 
           <p className="auth__legal">
-            Davom etish orqali siz{" "}
+            Davom etish bilan siz{" "}
             <button type="button" onClick={() => setLegal("terms")}>
               Foydalanish shartlari
             </button>{" "}
             va{" "}
             <button type="button" onClick={() => setLegal("privacy")}>
               Maxfiylik siyosati
-            </button>
-            ga rozilik bildirasiz.
+            </button>{" "}
+            hujjatlariga rozilik bildirasiz.
           </p>
         </div>
       </div>
