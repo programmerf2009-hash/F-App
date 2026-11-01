@@ -79,14 +79,16 @@ export async function enableNewsPush(session: Session): Promise<
     return { ok: false, error: "Push works only in the live edition." };
   }
 
-  const registration = await ensureServiceWorker();
-  if (!registration) {
-    return { ok: false, error: "The notification service could not start." };
-  }
-
+  // Ask for permission first: browsers require a live user gesture, and the
+  // service-worker registration await below would consume it.
   const permission = await Notification.requestPermission();
   if (permission !== "granted") {
     return { ok: false, error: "Notification permission was not granted." };
+  }
+
+  const registration = await ensureServiceWorker();
+  if (!registration) {
+    return { ok: false, error: "The notification service could not start." };
   }
 
   const existing = await registration.pushManager.getSubscription();
