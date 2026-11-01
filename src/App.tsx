@@ -1,18 +1,24 @@
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { AuthScreen } from "./app/AuthScreen";
+import { ErrorBoundary } from "./app/ErrorBoundary";
 import { Home } from "./app/Home";
 import { Onboarding } from "./app/Onboarding";
 import { Profile } from "./app/Profile";
 import { SearchPage } from "./app/Search";
+import { SectionLoading } from "./app/SectionLoading";
 import { Settings } from "./app/Settings";
 import { SplashScreen } from "./app/SplashScreen";
-import { NewsApp } from "./news/NewsApp";
 import { getSession, logOut, type Session } from "./lib/auth";
 import { isOnboardingDone, markOnboardingDone, resetOnboarding } from "./lib/onboarding-storage";
 import { setPendingCount } from "./lib/pending";
 import { getPendingCount, subscribeFriendships } from "./lib/social";
 import { loadTheme, saveTheme, type Theme } from "./lib/theme";
 import type { Tab } from "./components/BottomNav";
+
+/** News is the heaviest section: load it only when the reader opens it. */
+const NewsApp = lazy(() =>
+  import("./news/NewsApp").then((module) => ({ default: module.NewsApp })),
+);
 
 /** Kirish ekrani qancha turadi (ms). */
 const SPLASH_DURATION = 3000;
@@ -150,6 +156,15 @@ export default function App() {
     setTab("profile");
   }, []);
 
+  /* Warm the News chunk after the shell settles, without blocking first paint. */
+  useEffect(() => {
+    if (phase !== "app") return;
+    const timer = window.setTimeout(() => {
+      void import("./news/NewsApp");
+    }, 2500);
+    return () => window.clearTimeout(timer);
+  }, [phase]);
+
   if (phase === "splash") return <SplashScreen />;
 
   if (phase === "onboarding") {
@@ -158,7 +173,13 @@ export default function App() {
 
   if (phase === "app" && session) {
     if (newsOpen) {
-      return <NewsApp session={session} onClose={() => setNewsOpen(false)} />;
+      return (
+        <ErrorBoundary label="news">
+          <Suspense fallback={<SectionLoading label="Opening F News" />}>
+            <NewsApp session={session} onClose={() => setNewsOpen(false)} />
+          </Suspense>
+        </ErrorBoundary>
+      );
     }
 
     if (tab === "settings") {

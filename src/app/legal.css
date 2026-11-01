@@ -1,0 +1,145 @@
+/* Legal documents: a quiet paper page above the app surface. */
+
+.legal {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  overflow-y: auto;
+  background: #f4f1e9;
+  color: #16181c;
+  overscroll-behavior: contain;
+}
+
+.legal__bar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 14px 20px;
+  background: linear-gradient(180deg, #f4f1e9 70%, rgba(244, 241, 233, 0));
+}
+
+.legal__back {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(20, 22, 26, 0.1);
+  border-radius: 999px;
+  background: #fffdf8;
+  color: #16181c;
+  cursor: pointer;
+}
+
+.legal__stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #6b6f76;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.legal__doc {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 8px 20px 64px;
+}
+
+.legal__eyebrow {
+  margin: 0 0 6px;
+  color: #2f6fed;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.legal__doc h1 {
+  margin: 0 0 6px;
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: clamp(26px, 4vw, 34px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+.legal__meta {
+  margin: 0 0 18px;
+  color: #6b6f76;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.legal__doc h2 {
+  margin: 24px 0 8px;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.legal__doc p {
+  margin: 0 0 10px;
+  color: #3c4046;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.legal__doc ul {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  color: #3c4046;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.legal__doc li {
+  margin-bottom: 5px;
+}
+
+.legal__doc a {
+  color: #2f6fed;
+  text-decoration: none;
+  font-weight: 650;
+}
+
+.legal__doc a:hover {
+  text-decoration: underline;
+}
+
+/* Consent line under the auth form. */
+.auth__legal {
+  margin: 12px 0 0;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 10px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.auth__legal button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: rgba(255, 255, 255, 0.9);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .legal__bar {
+    padding: 10px 14px;
+  }
+
+  .legal__doc {
+    padding: 4px 16px 56px;
+  }
+}

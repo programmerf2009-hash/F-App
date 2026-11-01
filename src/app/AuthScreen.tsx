@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { ArrowLeft, AtSign, Cake, Eye, EyeOff, Lock, User } from "lucide-react";
 import { CosmicBackground } from "../components/CosmicBackground";
 import { logIn, signUp, type Gender, type Session } from "../lib/auth";
+import { LegalOverlay, type LegalKind } from "./Legal";
 import { validateAge, validateName, validateNickname, validatePassword } from "../lib/validation";
 import "./auth.css";
 
@@ -47,6 +48,7 @@ export function AuthScreen({ onAuthenticated }: Props) {
   const [newPassword, setNewPassword] = useState("");
   const [newReveal, setNewReveal] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [legal, setLegal] = useState<LegalKind | null>(null);
 
   const switchMode = (next: Mode) => {
     setMode(next);
@@ -378,8 +380,22 @@ export function AuthScreen({ onAuthenticated }: Props) {
               </p>
             </>
           )}
+
+          <p className="auth__legal">
+            Davom etish orqali siz{" "}
+            <button type="button" onClick={() => setLegal("terms")}>
+              Foydalanish shartlari
+            </button>{" "}
+            va{" "}
+            <button type="button" onClick={() => setLegal("privacy")}>
+              Maxfiylik siyosati
+            </button>
+            ga rozilik bildirasiz.
+          </p>
         </div>
       </div>
+
+      {legal ? <LegalOverlay kind={legal} onClose={() => setLegal(null)} /> : null}
     </div>
   );
 }

@@ -8,12 +8,15 @@ import {
   Music2,
   Pause,
   Play,
+  ScrollText,
+  ShieldCheck,
   Trash2,
   UserRound,
   X,
 } from "lucide-react";
 import { BottomNav, type Tab } from "../components/BottomNav";
 import { Toast } from "../components/Toast";
+import { LegalOverlay, type LegalKind } from "./Legal";
 import {
   getSongSignedUrl,
   removeFavoriteSong,
@@ -110,6 +113,7 @@ export function Settings({
 
   const [errors, setErrors] = useState<FieldErrors>({});
   const [toast, setToast] = useState<string | null>(null);
+  const [legal, setLegal] = useState<LegalKind | null>(null);
 
   const photoInput = useRef<HTMLInputElement>(null);
   const songInput = useRef<HTMLInputElement>(null);
@@ -715,6 +719,28 @@ export function Settings({
             <ChevronRight className="row__chev" size={16} aria-hidden="true" />
           </button>
 
+          <button type="button" className="row" onClick={() => setLegal("privacy")}>
+            <span className="row__icon" aria-hidden="true">
+              <ShieldCheck size={16} strokeWidth={2} />
+            </span>
+            <span className="row__text">
+              <b>Maxfiylik siyosati</b>
+              <small>Ma’lumotlar qanday saqlanadi</small>
+            </span>
+            <ChevronRight className="row__chev" size={16} aria-hidden="true" />
+          </button>
+
+          <button type="button" className="row" onClick={() => setLegal("terms")}>
+            <span className="row__icon" aria-hidden="true">
+              <ScrollText size={16} strokeWidth={2} />
+            </span>
+            <span className="row__text">
+              <b>Foydalanish shartlari</b>
+              <small>Ilova qoidalari va javobgarlik</small>
+            </span>
+            <ChevronRight className="row__chev" size={16} aria-hidden="true" />
+          </button>
+
           <div className="row">
             <span className="row__icon" aria-hidden="true">
               <span className="row__version">F</span>
@@ -760,6 +786,7 @@ export function Settings({
 
       <BottomNav active="settings" onNavigate={onNavigate} />
       <Toast message={toast} />
+      {legal ? <LegalOverlay kind={legal} onClose={() => setLegal(null)} /> : null}
     </div>
   );
 }
