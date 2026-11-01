@@ -12,6 +12,7 @@ import type { Session } from "../lib/auth";
 import { Sheet } from "../components/Sheet";
 import { newsErrorMessage } from "./news-api";
 import { publishArticle, publishFlash, publishShort } from "./news-compose";
+import { sendBreakingPush } from "./news-push";
 import {
   NEWS_CATEGORIES,
   type NewsCategory,
@@ -186,6 +187,13 @@ export function FlashComposerSheet({
         },
         session,
       );
+      // A Flash is breaking news by nature: alert this channel's followers.
+      void sendBreakingPush({
+        channelId: selectedChannel.id,
+        title,
+        body: `${selectedChannel.name} published a new Flash.`,
+        url: "index.html",
+      });
       onPublished();
       onClose();
     } catch (nextError) {
@@ -491,6 +499,15 @@ export function ArticleComposerSheet({
         },
         session,
       );
+      if (urgent) {
+        // Fire and forget: the article is already published, and a push
+        // outage must not surface as a publishing error.
+        void sendBreakingPush({
+          channelId: selectedChannel.id,
+          title,
+          url: "index.html",
+        });
+      }
       onPublished();
       onClose();
     } catch (nextError) {

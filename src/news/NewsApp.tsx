@@ -687,6 +687,7 @@ export function NewsApp({ session, onClose }: Props) {
 
         {tab === "settings" ? (
           <NewsSettings
+            session={session}
             prefs={prefs}
             weather={weather}
             weatherStatus={weatherStatus}

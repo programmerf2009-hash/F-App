@@ -239,6 +239,45 @@ button.news-settings-row:hover {
   margin-top: 9px;
 }
 
+.news-push-note {
+  margin: 4px 0 0;
+  color: var(--n-muted);
+  font-size: 9.5px;
+  line-height: 1.45;
+}
+
+.news-push-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 4px;
+  padding: 9px 13px;
+  border: 1px solid var(--n-line);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--n-ink);
+  font-size: 10px;
+  font-weight: 750;
+  transition: background 0.16s, border-color 0.16s, color 0.16s;
+}
+
+.news-push-toggle:hover {
+  border-color: rgba(37, 99, 235, 0.32);
+  background: var(--n-blue-soft);
+  color: var(--n-blue);
+}
+
+.news-push-toggle.is-on {
+  border-color: rgba(37, 99, 235, 0.34);
+  background: var(--n-blue-soft);
+  color: var(--n-blue);
+}
+
+.news-push-toggle:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .news-edition-card {
   overflow: hidden;
   border: 1px solid var(--n-line);

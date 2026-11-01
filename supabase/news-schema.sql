@@ -2685,6 +2685,66 @@ grant execute on function public.news_report_content(text, uuid, text, text) to 
 grant execute on function public.news_moderation_queue(text) to authenticated;
 grant execute on function public.news_resolve_report(uuid, text, text, text) to authenticated;
 
+/* ============================================================================
+   16. Push subscriptions
+   ----------------------------------------------------------------------------
+   Web Push endpoints for breaking alerts. The browser owns the row: readers
+   may upsert/delete only their own endpoints. The `news-push` Edge Function
+   reads rows with the service role when it delivers notifications.
+   ========================================================================== */
+
+create table if not exists public.news_push_subscriptions (
+  endpoint     text primary key,
+  user_id      uuid not null references auth.users (id) on delete cascade,
+  p256dh       text not null,
+  auth         text not null,
+  user_agent   text,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  constraint news_push_keys_len
+    check (char_length(p256dh) between 20 and 240 and char_length(auth) between 12 and 120)
+);
+
+create index if not exists news_push_user_idx
+  on public.news_push_subscriptions (user_id);
+
+-- Keep updated_at fresh.
+create or replace function public.news_push_touch() returns trigger
+language plpgsql as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists news_push_touch on public.news_push_subscriptions;
+create trigger news_push_touch
+before update on public.news_push_subscriptions
+for each row execute function public.news_push_touch();
+
+alter table public.news_push_subscriptions enable row level security;
+
+drop policy if exists "news_push_own_write" on public.news_push_subscriptions;
+create policy "news_push_own_write"
+  on public.news_push_subscriptions for insert to authenticated
+  with check (user_id = auth.uid());
+
+drop policy if exists "news_push_own_update" on public.news_push_subscriptions;
+create policy "news_push_own_update"
+  on public.news_push_subscriptions for update to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+drop policy if exists "news_push_own_delete" on public.news_push_subscriptions;
+create policy "news_push_own_delete"
+  on public.news_push_subscriptions for delete to authenticated
+  using (user_id = auth.uid());
+
+-- Reads happen only through the service role inside the Edge Function; a
+-- database leak must never expose the endpoints of other readers.
+revoke select on table public.news_push_subscriptions from authenticated, anon;
+revoke update on table public.news_push_subscriptions from anon;
+
 notify pgrst, 'reload schema';
 
 

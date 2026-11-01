@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Bell,
   Bookmark,
@@ -14,10 +14,17 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
+import type { Session } from "../lib/auth";
 import type { WeatherNow } from "../lib/weather";
 import { describeWeather } from "../lib/weather";
 import { NewsSectionHead, WeatherGlyph } from "./NewsChrome";
 import { DEFAULT_NEWS_PREFS } from "./news-prefs";
+import {
+  disableNewsPush,
+  enableNewsPush,
+  newsPushStatus,
+  type PushStatus,
+} from "./news-push";
 import {
   FEED_CATEGORIES,
   temperature,
@@ -29,6 +36,7 @@ import {
 } from "./news-types";
 
 interface Props {
+  session: Session;
   prefs: NewsPrefs;
   weather: WeatherNow | null;
   weatherStatus: "loading" | "ready" | "error";
@@ -45,6 +53,7 @@ interface Props {
 }
 
 export function NewsSettings({
+  session,
   prefs,
   weather,
   weatherStatus,
@@ -61,6 +70,46 @@ export function NewsSettings({
 }: Props) {
   const condition =
     weatherStatus === "ready" && weather ? describeWeather(weather.code).label : "Weather loading";
+
+  const [pushStatus, setPushStatus] = useState<PushStatus>("off");
+  const [pushBusy, setPushBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void newsPushStatus().then(({ status }) => {
+      if (active) setPushStatus(status);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const togglePush = async () => {
+    if (pushBusy) return;
+    setPushBusy(true);
+    try {
+      if (pushStatus === "on") {
+        const result = await disableNewsPush();
+        if (result.ok) {
+          setPushStatus(result.status);
+          notify("Push alerts are off on this device.");
+        } else {
+          notify(result.error);
+        }
+        return;
+      }
+
+      const result = await enableNewsPush(session);
+      if (result.ok) {
+        setPushStatus(result.status);
+        notify("Push alerts are on for this device.");
+      } else {
+        notify(result.error);
+      }
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   const toggleCategory = (category: NewsCategory) => {
     if (prefs.categories.includes(category)) {
@@ -240,6 +289,46 @@ export function NewsSettings({
               value={prefs.autoplay}
               onChange={(value) => onUpdate({ autoplay: value })}
             />
+          </div>
+
+          <div className="news-settings-card">
+            <div className="news-settings-card__head">
+              <div>
+                <h3>Device notifications</h3>
+                <p>Urgent flashes from channels you follow, even with the app closed.</p>
+              </div>
+              <span className="news-settings-card__count">
+                {pushStatus === "on" ? "On" : "Off"}
+              </span>
+            </div>
+
+            {pushStatus === "unsupported" ? (
+              <p className="news-push-note">
+                This browser does not support web push. Try Chrome, Edge or Firefox.
+              </p>
+            ) : pushStatus === "denied" ? (
+              <p className="news-push-note">
+                Notifications are blocked for this site. Allow them in the browser's site
+                settings, then reload News.
+              </p>
+            ) : (
+              <button
+                type="button"
+                className={`news-push-toggle${pushStatus === "on" ? " is-on" : ""}`}
+                onClick={() => void togglePush()}
+                disabled={pushBusy}
+                aria-pressed={pushStatus === "on"}
+              >
+                {pushBusy ? (
+                  <LoaderCircle size={15} strokeWidth={2.1} className="news-spin" />
+                ) : (
+                  <Bell size={15} strokeWidth={2.1} />
+                )}
+                {pushStatus === "on"
+                  ? "Disable push on this device"
+                  : "Enable push on this device"}
+              </button>
+            )}
           </div>
         </section>
 
