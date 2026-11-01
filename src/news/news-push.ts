@@ -7,6 +7,7 @@
 
 import type { Session } from "../lib/auth";
 import { supabase, supabaseConfigured } from "../lib/supabase";
+import { logPushDelivery } from "./news-analytics";
 
 /** Public application server key. The matching private key stays a server secret. */
 const VAPID_PUBLIC_KEY =
@@ -172,8 +173,23 @@ export async function sendBreakingPush(input: {
 }): Promise<boolean> {
   if (!supabaseConfigured) return false;
   try {
-    const { error } = await supabase.functions.invoke(PUSH_FUNCTION, { body: input });
-    return !error;
+    const { data, error } = await supabase.functions.invoke(PUSH_FUNCTION, { body: input });
+    if (error) return false;
+
+    const result = data as
+      | { recipients?: number; sent?: number; removed?: number }
+      | null;
+    if (result && typeof result.sent === "number" && input.channelId !== "all") {
+      // Telemetry for Studio. Fire and forget: the alert already went out.
+      void logPushDelivery({
+        channelId: input.channelId,
+        title: input.title,
+        recipients: result.recipients ?? 0,
+        delivered: result.sent,
+        removed: result.removed ?? 0,
+      });
+    }
+    return true;
   } catch {
     return false;
   }

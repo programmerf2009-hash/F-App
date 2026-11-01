@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import type { Session } from "../lib/auth";
 import { ChannelAvatar, NewsSectionHead, VerifiedBadge } from "./NewsChrome";
+import { NewsAnalyticsPanel } from "./NewsAnalyticsPanel";
 import {
   acceptChannelTransfer,
   declineChannelTransfer,
@@ -210,6 +211,8 @@ export function NewsStudio({
                 <strong>{liveFlashCount}</strong>
               </div>
             </section>
+
+            <NewsAnalyticsPanel channels={myChannels} />
 
             <section className="news-block" aria-label="Your channels">
               <NewsSectionHead

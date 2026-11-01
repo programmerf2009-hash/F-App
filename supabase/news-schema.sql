@@ -2752,6 +2752,197 @@ revoke all on table public.news_push_subscriptions from anon;
 grant select, insert, update, delete on table public.news_push_subscriptions
   to authenticated;
 
+/* ============================================================================
+   17. Analytics
+   ----------------------------------------------------------------------------
+   One delivery log for breaking alerts plus a single read-side RPC that
+   aggregates the counters Studio needs. Aggregates run server-side so the
+   browser never downloads raw view rows.
+   ========================================================================== */
+
+create table if not exists public.news_push_deliveries (
+  id          uuid primary key default gen_random_uuid(),
+  channel_id  uuid references public.news_channels (id) on delete cascade,
+  sent_by     uuid references auth.users (id) on delete set null,
+  title       text,
+  recipients  integer not null default 0,
+  delivered   integer not null default 0,
+  removed     integer not null default 0,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists news_push_deliveries_channel_idx
+  on public.news_push_deliveries (channel_id, created_at desc);
+
+alter table public.news_push_deliveries enable row level security;
+
+-- No policies: the delivery log is written and read only through the
+-- security-definer functions below.
+revoke all on table public.news_push_deliveries from authenticated, anon;
+
+create or replace function public.news_log_push_delivery(
+  p_channel_id uuid,
+  p_title      text,
+  p_recipients integer,
+  p_delivered  integer,
+  p_removed    integer default 0
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Sign in required' using errcode = '28000';
+  end if;
+
+  if not (public.news_can_edit_channel(p_channel_id) or public.news_is_admin()) then
+    raise exception 'Not allowed' using errcode = '42501';
+  end if;
+
+  insert into public.news_push_deliveries
+    (channel_id, sent_by, title, recipients, delivered, removed)
+  values (
+    p_channel_id,
+    auth.uid(),
+    left(coalesce(p_title, ''), 200),
+    greatest(coalesce(p_recipients, 0), 0),
+    greatest(coalesce(p_delivered, 0), 0),
+    greatest(coalesce(p_removed, 0), 0)
+  );
+end;
+$$;
+
+create or replace function public.news_channel_analytics(
+  p_channel_id uuid,
+  p_days       integer default 30
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_uid    uuid := auth.uid();
+  v_days   integer := greatest(1, least(coalesce(p_days, 30), 365));
+  v_since  date := current_date - (v_days - 1);
+  v_before date := current_date - (v_days * 2 - 1);
+begin
+  if v_uid is null then
+    raise exception 'Sign in required' using errcode = '28000';
+  end if;
+
+  if not (public.news_can_edit_channel(p_channel_id) or public.news_is_admin()) then
+    raise exception 'Not allowed' using errcode = '42501';
+  end if;
+
+  return (
+    with targets as (
+      select 'article'::text as target_type, a.id
+      from public.news_articles a
+      where a.channel_id = p_channel_id
+      union all
+      select 'flash', f.id
+      from public.news_flashes f
+      where f.channel_id = p_channel_id
+      union all
+      select 'short', s.id
+      from public.news_shorts s
+      where s.channel_id = p_channel_id
+    ),
+    period as (
+      select v.user_id, v.viewed_on
+      from public.news_views v
+      join targets t on t.target_type = v.target_type and t.id = v.target_id
+      where v.viewed_on >= v_before
+    ),
+    day_series as (
+      select viewed_on as day, count(*)::integer as views
+      from period
+      where viewed_on >= v_since
+      group by viewed_on
+    ),
+    top_articles as (
+      select a.id, a.title, a.published_at, count(*)::integer as views
+      from public.news_articles a
+      join targets t on t.target_type = 'article' and t.id = a.id
+      join public.news_views v on v.target_type = 'article' and v.target_id = a.id
+      where v.viewed_on >= v_since
+      group by a.id, a.title, a.published_at
+      order by views desc
+      limit 5
+    ),
+    top_shorts as (
+      select s.id, s.caption as title, s.published_at, count(*)::integer as views
+      from public.news_shorts s
+      join targets t on t.target_type = 'short' and t.id = s.id
+      join public.news_views v on v.target_type = 'short' and v.target_id = s.id
+      where v.viewed_on >= v_since
+      group by s.id, s.caption, s.published_at
+      order by views desc
+      limit 5
+    ),
+    push_recent as (
+      select d.id, d.title, d.recipients, d.delivered, d.removed, d.created_at
+      from public.news_push_deliveries d
+      where d.channel_id = p_channel_id
+      order by d.created_at desc
+      limit 5
+    )
+    select jsonb_build_object(
+      'days', v_days,
+      'since', v_since,
+      'views_total',
+        (select count(*)::integer from period where viewed_on >= v_since),
+      'views_previous',
+        (select count(*)::integer from period where viewed_on < v_since),
+      'readers',
+        (select count(distinct user_id)::integer from period where viewed_on >= v_since),
+      'followers',
+        (select count(*)::integer from public.news_subscriptions s
+          where s.channel_id = p_channel_id),
+      'new_followers',
+        (select count(*)::integer from public.news_subscriptions s
+          where s.channel_id = p_channel_id and s.created_at >= v_since),
+      'views_by_day',
+        coalesce((select jsonb_agg(jsonb_build_object('day', day, 'views', views) order by day)
+                  from day_series), '[]'::jsonb),
+      'top_articles',
+        coalesce((select jsonb_agg(jsonb_build_object(
+                    'id', id, 'title', title, 'views', views, 'published_at', published_at)
+                  order by views desc) from top_articles), '[]'::jsonb),
+      'top_shorts',
+        coalesce((select jsonb_agg(jsonb_build_object(
+                    'id', id, 'title', title, 'views', views, 'published_at', published_at)
+                  order by views desc) from top_shorts), '[]'::jsonb),
+      'push_deliveries',
+        (select count(*)::integer from public.news_push_deliveries d
+          where d.channel_id = p_channel_id and d.created_at >= v_since),
+      'push_delivered',
+        (select coalesce(sum(d.delivered), 0)::integer from public.news_push_deliveries d
+          where d.channel_id = p_channel_id and d.created_at >= v_since),
+      'recent_push',
+        coalesce((select jsonb_agg(jsonb_build_object(
+                    'id', id, 'title', title, 'recipients', recipients,
+                    'delivered', delivered, 'removed', removed, 'created_at', created_at)
+                  order by created_at desc) from push_recent), '[]'::jsonb)
+    )
+  );
+end;
+$$;
+
+revoke all on function public.news_log_push_delivery(uuid, text, integer, integer, integer)
+  from public, anon;
+revoke all on function public.news_channel_analytics(uuid, integer)
+  from public, anon;
+
+grant execute on function public.news_log_push_delivery(uuid, text, integer, integer, integer)
+  to authenticated;
+grant execute on function public.news_channel_analytics(uuid, integer)
+  to authenticated;
+
 notify pgrst, 'reload schema';
 
 

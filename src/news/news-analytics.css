@@ -1,0 +1,229 @@
+/* Studio analytics: quiet numbers on paper, no dashboard theatre. */
+
+.news-analytics__ranges {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--n-line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.news-analytics__range {
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--n-muted);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+
+.news-analytics__range.is-active {
+  background: var(--n-blue-soft);
+  color: var(--n-blue);
+}
+
+.news-analytics__channels {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.news-analytics__channels::-webkit-scrollbar {
+  display: none;
+}
+
+.news-analytics__channel {
+  flex: none;
+  padding: 7px 12px;
+  border: 1px solid var(--n-line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--n-muted);
+  font-size: 9.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.news-analytics__channel.is-active {
+  border-color: rgba(37, 99, 235, 0.34);
+  background: var(--n-blue-soft);
+  color: var(--n-blue);
+}
+
+.news-analytics__state {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 6px 0 0;
+  color: var(--n-muted);
+  font-size: 10px;
+}
+
+.news-analytics__state.is-error {
+  color: #b42318;
+}
+
+.news-analytics__stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.news-analytics__stat {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  padding: 11px;
+  border: 1px solid var(--n-line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.news-analytics__stat-icon {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  margin-bottom: 4px;
+  border-radius: 9px;
+  background: var(--n-blue-soft);
+  color: var(--n-blue);
+}
+
+.news-analytics__stat strong {
+  color: var(--n-ink);
+  font-family: var(--n-serif);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.news-analytics__stat > span:not(.news-analytics__stat-icon) {
+  color: var(--n-ink);
+  font-size: 9.5px;
+  font-weight: 750;
+}
+
+.news-analytics__stat em {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 2px;
+  color: var(--n-muted);
+  font-size: 8.5px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.news-analytics__stat em.is-up {
+  color: #067647;
+}
+
+.news-analytics__stat em.is-down {
+  color: #b42318;
+}
+
+.news-analytics__chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 84px;
+  margin-top: 12px;
+  padding: 0 2px 6px;
+  border-bottom: 1px solid var(--n-line);
+}
+
+.news-analytics__bar {
+  flex: 1 1 0;
+  min-height: 4px;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.62), rgba(37, 99, 235, 0.24));
+}
+
+.news-analytics__chart-note {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 6px 0 12px;
+  color: var(--n-muted);
+  font-size: 8.5px;
+  font-weight: 600;
+}
+
+.news-analytics__lists {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.news-analytics__list {
+  padding: 12px;
+  border: 1px solid var(--n-line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.64);
+}
+
+.news-analytics__list h3 {
+  margin: 0 0 7px;
+  color: var(--n-ink);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.news-analytics__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid rgba(23, 26, 31, 0.06);
+  color: var(--n-ink);
+  font-size: 9.5px;
+  line-height: 1.35;
+}
+
+.news-analytics__row:first-of-type {
+  border-top: 0;
+}
+
+.news-analytics__row span {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.news-analytics__row em {
+  color: var(--n-muted);
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.news-analytics__row strong {
+  flex: none;
+  color: var(--n-ink);
+  font-size: 9.5px;
+  font-weight: 800;
+}
+
+.news-analytics__empty {
+  margin: 0;
+  color: var(--n-muted);
+  font-size: 9px;
+}
+
+@media (max-width: 720px) {
+  .news-analytics__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .news-analytics__lists {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
