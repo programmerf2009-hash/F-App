@@ -27,6 +27,9 @@ self.addEventListener("push", (event) => {
       badge: payload.badge || "brand/fapplogo2.png",
       tag: payload.tag || "fapp-breaking",
       renotify: Boolean(payload.renotify),
+      // Desktop browsers otherwise hide a toast after a few seconds. Keeping
+      // it until the reader clicks or dismisses avoids missed breaking news.
+      requireInteraction: true,
       data: { url },
     }),
   );
