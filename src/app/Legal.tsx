@@ -10,7 +10,7 @@ function PrivacyDoc() {
   return (
     <>
       <p className="legal__eyebrow">Maxfiylik siyosati</p>
-      <h1>Ma’lumotlaringiz qanday ishlatiladi</h1>
+      <h1 id="legal-title">Ma’lumotlaringiz qanday ishlatiladi</h1>
       <p className="legal__meta">Oxirgi yangilanish: {UPDATED}</p>
 
       <h2>1. Qanday ma’lumot yig‘amiz</h2>
@@ -83,7 +83,7 @@ function TermsDoc() {
   return (
     <>
       <p className="legal__eyebrow">Foydalanish shartlari</p>
-      <h1>F App’dan foydalanish qoidalari</h1>
+      <h1 id="legal-title">F App’dan foydalanish qoidalari</h1>
       <p className="legal__meta">Oxirgi yangilanish: {UPDATED}</p>
 
       <h2>1. Xizmat haqida</h2>
@@ -185,7 +185,7 @@ export function LegalOverlay({ kind, onClose }: { kind: LegalKind; onClose: () =
         </span>
       </div>
 
-      <article className="legal__doc" id="legal-title">
+      <article className="legal__doc">
         {kind === "privacy" ? <PrivacyDoc /> : <TermsDoc />}
       </article>
     </div>
