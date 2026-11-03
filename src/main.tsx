@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ErrorBoundary } from "./app/ErrorBoundary";
+import { OfflineNotice } from "./app/OfflineNotice";
 import "./styles/globals.css";
 import "./styles/surfaces.css";
 import "./styles/hardening.css";
@@ -14,5 +15,6 @@ createRoot(container).render(
     <ErrorBoundary label="app">
       <App />
     </ErrorBoundary>
+    <OfflineNotice />
   </StrictMode>,
 );

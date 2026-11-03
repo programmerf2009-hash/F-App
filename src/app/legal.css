@@ -124,6 +124,51 @@
   text-wrap: balance;
 }
 
+/* Network status line. */
+.net-banner {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  left: 50%;
+  z-index: 200;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: calc(100vw - 28px);
+  padding: 7px 13px;
+  border: 1px solid rgba(20, 22, 26, 0.1);
+  border-radius: 999px;
+  background: #1d2026;
+  color: #fffdf8;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  box-shadow: 0 12px 28px -14px rgba(0, 0, 0, 0.6);
+  transform: translateX(-50%);
+  animation: net-banner-in 0.22s ease-out;
+  pointer-events: none;
+}
+
+.net-banner--back {
+  background: #0f7a4a;
+}
+
+@keyframes net-banner-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .net-banner {
+    animation: none;
+  }
+}
+
 .auth__legal button {
   padding: 0;
   border: 0;
