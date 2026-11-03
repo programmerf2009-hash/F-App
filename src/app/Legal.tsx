@@ -1,23 +1,34 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import "./legal.css";
 
 export type LegalKind = "privacy" | "terms";
+type Lang = "uz" | "en";
 
-const UPDATED = "2026-yil 2-noyabr";
+const LANG_KEY = "fapp:legal:lang";
 
-function PrivacyDoc() {
+function readLang(): Lang {
+  try {
+    const saved = window.localStorage.getItem(LANG_KEY);
+    if (saved === "uz" || saved === "en") return saved;
+  } catch {
+    /* private mode */
+  }
+  return "uz";
+}
+
+function PrivacyUz() {
   return (
     <>
       <p className="legal__eyebrow">Maxfiylik siyosati</p>
       <h1 id="legal-title">Ma’lumotlaringiz qanday ishlatiladi</h1>
-      <p className="legal__meta">Oxirgi yangilanish: {UPDATED}</p>
+      <p className="legal__meta">Oxirgi yangilanish: 2026-yil 2-noyabr</p>
 
       <h2>1. Qanday ma’lumot yig‘amiz</h2>
       <p>
-        F App’dan foydalanish uchun siz taxallus (nickname), ism, email, jins va tug‘ilgan
-        kunni kiritasiz. Profilingizga rasm va sevimli qo‘shiq qo‘shishingiz mumkin. Xabarlar,
-        izohlar, e’lon qilingan maqola, Flash va Shorts hamda kanal obunalari ham saqlanadi.
+        Ro‘yxatdan o‘tishda taxallus, ism, familiya, yosh va jinsni kiritasiz. Profilingizga
+        rasm, kasb, qisqa tavsif va sevimli qo‘shiq qo‘shishingiz mumkin. Xabarlar, izohlar,
+        e’lon qilingan maqola, Flash va Shorts hamda kanal obunalari ham saqlanadi.
       </p>
       <p>
         Bildirishnomalarga ruxsat bersangiz, qurilmangizning push-manzili (endpoint) va brauzer
@@ -40,22 +51,22 @@ function PrivacyDoc() {
         ma’lumotlaringizni reklama maqsadida sotmaymiz.
       </p>
       <p>
-        Ommaviy profil kartangizda faqat taxallus va rasm ko‘rinadi. Email, jins va tug‘ilgan
-        kun boshqa foydalanuvchilarga ko‘rsatilmaydi.
+        Ommaviy profil kartangizda faqat taxallus va rasm ko‘rinadi. Ism, yosh va jins boshqa
+        foydalanuvchilarga ko‘rsatilmaydi.
       </p>
 
       <h2>4. Qancha vaqt saqlaymiz</h2>
       <p>
-        Hisob faol bo‘lganda ma’lumotlar saqlanadi. Hisobni o‘chirishni so‘rasangiz, profil va
-        unga bog‘langan shaxsiy ma’lumotlar o‘chiriladi. Qonun talab qilgan hollarda ayrim
-        yozuvlar uzoqroq saqlanishi mumkin.
+        Hisob faol bo‘lganda ma’lumotlar saqlanadi. Hisobni o‘chirish so‘rovi bajarilganda
+        profil va unga bog‘langan shaxsiy ma’lumotlar o‘chiriladi. Qonun talab qilgan hollarda
+        ayrim yozuvlar uzoqroq saqlanishi mumkin.
       </p>
 
       <h2>5. Huquqlaringiz</h2>
       <p>
-        O‘z ma’lumotlaringizni ko‘rish, tuzatish yoki o‘chirishni so‘rashingiz mumkin. Buning
-        uchun <a href="mailto:admin@fapp.app">admin@fapp.app</a> manziliga yozing. So‘rovni
-        imkon qadar tez, odatda 30 kun ichida ko‘rib chiqamiz.
+        Siz o‘z ma’lumotlaringizni ko‘rish, tuzatish yoki o‘chirishni so‘rash huquqiga egasiz.
+        Profil ma’lumotlarining ko‘p qismini Sozlamalar bo‘limidan o‘zingiz tahrirlashingiz
+        mumkin. Boshqa so‘rovlar ilova egasi tomonidan ko‘rib chiqiladi.
       </p>
 
       <h2>6. Cookies va qurilma xotirasi</h2>
@@ -70,21 +81,83 @@ function PrivacyDoc() {
         F App 13 yoshgacha bo‘lgan bolalarga mo‘ljallanmagan. Voyaga yetmagan foydalanuvchi
         ota-onasi yoki vasiysining roziligi bilan foydalanishi kerak.
       </p>
+    </>
+  );
+}
 
-      <h2>8. Aloqa</h2>
+function PrivacyEn() {
+  return (
+    <>
+      <p className="legal__eyebrow">Privacy policy</p>
+      <h1 id="legal-title">How your data is used</h1>
+      <p className="legal__meta">Last updated: 2 November 2026</p>
+
+      <h2>1. What we collect</h2>
       <p>
-        Savollar uchun: <a href="mailto:admin@fapp.app">admin@fapp.app</a>.
+        When you sign up you enter a nickname, first and last name, age and gender. You may add
+        a photo, profession, a short bio and a favourite song. Messages, comments, published
+        articles, Flash items, Shorts and channel subscriptions are stored as well.
+      </p>
+      <p>
+        If you allow notifications, we store your device push endpoint and browser type. This is
+        used only to deliver breaking alerts from the channels you chose.
+      </p>
+
+      <h2>2. Why we use it</h2>
+      <ul>
+        <li>To sign you in and keep your session alive.</li>
+        <li>To show messages, comments and channels.</li>
+        <li>To rank the news feed and your subscriptions.</li>
+        <li>To send the notifications you enabled.</li>
+        <li>To detect security issues, abuse and rule violations.</li>
+      </ul>
+
+      <h2>3. Who we share it with</h2>
+      <p>
+        Data is processed through Supabase (database and authentication) and push service
+        providers. These providers work only to run the service. We do not sell your data for
+        advertising.
+      </p>
+      <p>
+        Your public profile card shows only your nickname and photo. Name, age and gender are
+        not shown to other users.
+      </p>
+
+      <h2>4. How long we keep it</h2>
+      <p>
+        Data is kept while your account is active. When an account deletion request is carried
+        out, the profile and its personal data are removed. Some records may be kept longer
+        where the law requires it.
+      </p>
+
+      <h2>5. Your rights</h2>
+      <p>
+        You may ask to see, correct or delete your data. Most profile fields can be edited by
+        you in Settings. Other requests are reviewed by the app owner.
+      </p>
+
+      <h2>6. Cookies and device storage</h2>
+      <p>
+        Session, language, theme and News preferences are stored in device storage
+        (localStorage). This data is not used for advertising tracking and can be cleared with
+        your browser settings.
+      </p>
+
+      <h2>7. Children</h2>
+      <p>
+        F App is not intended for children under 13. Minors should use it with the consent of a
+        parent or guardian.
       </p>
     </>
   );
 }
 
-function TermsDoc() {
+function TermsUz() {
   return (
     <>
       <p className="legal__eyebrow">Foydalanish shartlari</p>
       <h1 id="legal-title">F App’dan foydalanish qoidalari</h1>
-      <p className="legal__meta">Oxirgi yangilanish: {UPDATED}</p>
+      <p className="legal__meta">Oxirgi yangilanish: 2026-yil 2-noyabr</p>
 
       <h2>1. Xizmat haqida</h2>
       <p>
@@ -141,10 +214,68 @@ function TermsDoc() {
         Shartlar yangilansa, ilovada ko‘rinadigan sana o‘zgaradi. Muhim o‘zgarishlar haqida
         ilova ichida xabar beramiz.
       </p>
+    </>
+  );
+}
 
-      <h2>9. Aloqa</h2>
+function TermsEn() {
+  return (
+    <>
+      <p className="legal__eyebrow">Terms of use</p>
+      <h1 id="legal-title">Rules for using F App</h1>
+      <p className="legal__meta">Last updated: 2 November 2026</p>
+
+      <h2>1. About the service</h2>
       <p>
-        Savollar uchun: <a href="mailto:admin@fapp.app">admin@fapp.app</a>.
+        F App brings news, short videos, channels and social features into one app. Some
+        sections are still being built and may change over time.
+      </p>
+
+      <h2>2. Your account</h2>
+      <p>
+        You are responsible for keeping your account safe. A nickname must not mislead other
+        users or impersonate a known person. Handing an account over to someone else is only
+        allowed through the official transfer flow inside the app.
+      </p>
+
+      <h2>3. Content rules</h2>
+      <p>The following is not allowed:</p>
+      <ul>
+        <li>Illegal, threatening, hateful or violence-promoting material.</li>
+        <li>Spam, deception, fraud and misleading other users.</li>
+        <li>Infringing copyright or personal privacy.</li>
+        <li>Trying to access someone else’s account or data without permission.</li>
+      </ul>
+
+      <h2>4. Channels and subscribers</h2>
+      <p>
+        Whoever opens a channel is responsible for its name, handle and posts. When a channel is
+        transferred, its name, handle, posts and subscribers move to the new owner. Subscribers
+        may unfollow at any time.
+      </p>
+
+      <h2>5. Moderation</h2>
+      <p>
+        Users can report content. Material that breaks the rules may be removed, and channel
+        privileges may be limited. Serious violations lead to account suspension.
+      </p>
+
+      <h2>6. Notifications</h2>
+      <p>
+        Breaking alerts are sent only to devices you allowed. You can turn push off in Settings
+        at any time.
+      </p>
+
+      <h2>7. Liability</h2>
+      <p>
+        The service is provided “as is”. Liability for outages, data loss or third-party content
+        is limited to the extent the law allows.
+      </p>
+
+      <h2>8. Changes</h2>
+      <p>
+        When these terms change, the date shown in the app changes too. We will announce
+        important changes inside the app.
       </p>
     </>
   );
@@ -152,6 +283,16 @@ function TermsDoc() {
 
 export function LegalOverlay({ kind, onClose }: { kind: LegalKind; onClose: () => void }) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
+  const [lang, setLang] = useState<Lang>(readLang);
+
+  const chooseLang = (next: Lang) => {
+    setLang(next);
+    try {
+      window.localStorage.setItem(LANG_KEY, next);
+    } catch {
+      /* private mode */
+    }
+  };
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -167,6 +308,19 @@ export function LegalOverlay({ kind, onClose }: { kind: LegalKind; onClose: () =
     };
   }, [onClose]);
 
+  const doc =
+    kind === "privacy" ? (
+      lang === "uz" ? (
+        <PrivacyUz />
+      ) : (
+        <PrivacyEn />
+      )
+    ) : lang === "uz" ? (
+      <TermsUz />
+    ) : (
+      <TermsEn />
+    );
+
   return (
     <div className="legal" role="dialog" aria-modal="true" aria-labelledby="legal-title">
       <div className="legal__bar">
@@ -175,18 +329,39 @@ export function LegalOverlay({ kind, onClose }: { kind: LegalKind; onClose: () =
           type="button"
           className="legal__back"
           onClick={onClose}
-          aria-label="Orqaga"
+          aria-label={lang === "uz" ? "Orqaga" : "Back"}
         >
           <ArrowLeft size={18} strokeWidth={2.1} />
         </button>
-        <span className="legal__stamp">
-          <ShieldCheck size={14} strokeWidth={2.1} />
-          F App legal
-        </span>
+
+        <div className="legal__tools">
+          <span className="legal__stamp">
+            <ShieldCheck size={14} strokeWidth={2.1} />
+            F App legal
+          </span>
+          <div className="legal__lang" role="group" aria-label="Document language">
+            <button
+              type="button"
+              className={lang === "uz" ? "is-active" : ""}
+              aria-pressed={lang === "uz"}
+              onClick={() => chooseLang("uz")}
+            >
+              UZ
+            </button>
+            <button
+              type="button"
+              className={lang === "en" ? "is-active" : ""}
+              aria-pressed={lang === "en"}
+              onClick={() => chooseLang("en")}
+            >
+              EN
+            </button>
+          </div>
+        </div>
       </div>
 
-      <article className="legal__doc">
-        {kind === "privacy" ? <PrivacyDoc /> : <TermsDoc />}
+      <article className="legal__doc" lang={lang}>
+        {doc}
       </article>
     </div>
   );

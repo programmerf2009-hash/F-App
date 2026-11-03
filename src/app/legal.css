@@ -46,6 +46,37 @@
   text-transform: uppercase;
 }
 
+.legal__tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.legal__lang {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid rgba(20, 22, 26, 0.12);
+  border-radius: 999px;
+  background: #fffdf8;
+}
+
+.legal__lang button {
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: #6b6f76;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.legal__lang button.is-active {
+  background: #14161a;
+  color: #fffdf8;
+}
+
 .legal__doc {
   max-width: 680px;
   margin: 0 auto;
@@ -184,6 +215,10 @@
 @media (max-width: 720px) {
   .legal__bar {
     padding: 10px 14px;
+  }
+
+  .legal__stamp {
+    display: none;
   }
 
   .legal__doc {
