@@ -273,6 +273,51 @@ export async function logOut(): Promise<void> {
   }
 }
 
+export type PasswordResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Changing the password without email: F App accounts use synthetic
+ * `<nickname>@fapp.app` addresses, so a reset link can never reach the user.
+ * We re-check the current password, then set the new one.
+ */
+export async function changePassword(current: string, next: string): Promise<PasswordResult> {
+  if (!supabaseConfigured) {
+    return { ok: false, error: "Backend is not configured." };
+  }
+  if (next.length < 8) {
+    return { ok: false, error: "Use at least 8 characters." };
+  }
+
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    const email = data.user?.email;
+    if (error || !email) {
+      return { ok: false, error: "Could not verify this session. Log in again." };
+    }
+
+    const reauth = await supabase.auth.signInWithPassword({ email, password: current });
+    if (reauth.error) {
+      const lower = reauth.error.message.toLowerCase();
+      if (lower.includes("rate limit") || lower.includes("too many")) {
+        return { ok: false, error: "Too many attempts. Try again in a few minutes." };
+      }
+      if (lower.includes("fetch") || lower.includes("network")) {
+        return { ok: false, error: "Could not connect to the server. Check your connection." };
+      }
+      return { ok: false, error: "Current password is not correct." };
+    }
+
+    const update = await supabase.auth.updateUser({ password: next });
+    if (update.error) {
+      return { ok: false, error: errorText(update.error, "Could not update the password.") };
+    }
+
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: errorText(error, "Could not update the password.") };
+  }
+}
+
 export async function updateProfile(patch: ProfilePatch): Promise<Session> {
   const user = await currentUser();
 

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import {
   Camera,
   Check,
   ChevronRight,
   Database,
+  KeyRound,
   LogOut,
   Music2,
   Pause,
@@ -18,6 +19,7 @@ import { BottomNav, type Tab } from "../components/BottomNav";
 import { Toast } from "../components/Toast";
 import { LegalOverlay, type LegalKind } from "./Legal";
 import {
+  changePassword,
   getSongSignedUrl,
   removeFavoriteSong,
   updateProfile,
@@ -26,8 +28,7 @@ import {
   type Gender,
   type Session,
   type SongMeta,
-} from "../lib/auth";
-import { clearRatesCache } from "../lib/rates";
+} from "../lib/auth";import { clearRatesCache } from "../lib/rates";
 import { MAX_SONG_BYTES, formatBytes, formatDuration } from "../lib/song-store";
 import type { Theme } from "../lib/theme";
 import { validateAge, validateName } from "../lib/validation";
@@ -114,6 +115,13 @@ export function Settings({
   const [errors, setErrors] = useState<FieldErrors>({});
   const [toast, setToast] = useState<string | null>(null);
   const [legal, setLegal] = useState<LegalKind | null>(null);
+
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pwCurrent, setPwCurrent] = useState("");
+  const [pwNext, setPwNext] = useState("");
+  const [pwRepeat, setPwRepeat] = useState("");
+  const [pwError, setPwError] = useState<string | null>(null);
+  const [pwBusy, setPwBusy] = useState(false);
 
   const photoInput = useRef<HTMLInputElement>(null);
   const songInput = useRef<HTMLInputElement>(null);
@@ -325,6 +333,48 @@ export function Settings({
     clearRatesCache();
     clearWeatherCache();
     showToast("Cache cleared");
+  };
+
+  const closePassword = () => {
+    setPwOpen(false);
+    setPwCurrent("");
+    setPwNext("");
+    setPwRepeat("");
+    setPwError(null);
+  };
+
+  const handlePassword = async (event: FormEvent) => {
+    event.preventDefault();
+    setPwError(null);
+
+    if (!pwCurrent) {
+      setPwError("Enter your current password.");
+      return;
+    }
+    if (pwNext.length < 8) {
+      setPwError("New password must be at least 8 characters.");
+      return;
+    }
+    if (pwNext !== pwRepeat) {
+      setPwError("New passwords do not match.");
+      return;
+    }
+    if (pwNext === pwCurrent) {
+      setPwError("Choose a password you have not used here.");
+      return;
+    }
+
+    setPwBusy(true);
+    const result = await changePassword(pwCurrent, pwNext);
+    setPwBusy(false);
+
+    if (!result.ok) {
+      setPwError(result.error);
+      return;
+    }
+
+    closePassword();
+    showToast("Password updated");
   };
 
   /* ---------------------------------------------------------------- UI */
@@ -766,6 +816,91 @@ export function Settings({
               <p className="panel__hint">Signed in as @{session.nickname}</p>
             </div>
           </div>
+
+          <button
+            type="button"
+            className="row"
+            onClick={() => {
+              if (pwOpen) closePassword();
+              else setPwOpen(true);
+            }}
+            aria-expanded={pwOpen}
+          >
+            <span className="row__icon" aria-hidden="true">
+              <KeyRound size={16} strokeWidth={2} />
+            </span>
+            <span className="row__text">
+              <b>Change password</b>
+              <small>Confirm with your current password</small>
+            </span>
+            <ChevronRight
+              className={`row__chev${pwOpen ? " is-open" : ""}`}
+              size={16}
+              aria-hidden="true"
+            />
+          </button>
+
+          {pwOpen && (
+            <form className="pw-form" onSubmit={handlePassword} noValidate>
+              <label className="field">
+                <span className="field__label">Current password</span>
+                <input
+                  className="input"
+                  type="password"
+                  autoComplete="current-password"
+                  value={pwCurrent}
+                  onChange={(event) => {
+                    setPwCurrent(event.target.value);
+                    setPwError(null);
+                  }}
+                />
+              </label>
+
+              <label className="field">
+                <span className="field__label">New password</span>
+                <input
+                  className="input"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="At least 8 characters"
+                  value={pwNext}
+                  onChange={(event) => {
+                    setPwNext(event.target.value);
+                    setPwError(null);
+                  }}
+                />
+              </label>
+
+              <label className="field">
+                <span className="field__label">Repeat new password</span>
+                <input
+                  className="input"
+                  type="password"
+                  autoComplete="new-password"
+                  value={pwRepeat}
+                  onChange={(event) => {
+                    setPwRepeat(event.target.value);
+                    setPwError(null);
+                  }}
+                />
+              </label>
+
+              {pwError && (
+                <p className="field__error" role="alert">
+                  {pwError}
+                </p>
+              )}
+
+              <div className="pw-form__actions">
+                <button type="submit" className="btn btn--primary" disabled={pwBusy}>
+                  {pwBusy ? "Saving…" : "Update password"}
+                </button>
+                <button type="button" className="btn btn--ghost" onClick={closePassword}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
 
           <button type="button" className="btn btn--danger" onClick={onLogout}>
             <LogOut size={16} strokeWidth={2.1} />

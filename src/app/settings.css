@@ -878,6 +878,29 @@
 
 .row__chev {
   color: var(--h-faint);
+  transition: transform 0.18s var(--ease-out);
+}
+
+.row__chev.is-open {
+  transform: rotate(90deg);
+}
+
+/* Parolni almashtirish formasi (Account paneli ichida). */
+.pw-form {
+  display: grid;
+  gap: 10px;
+  margin: 4px 0 14px;
+  padding: 14px;
+  border: 1px solid var(--h-border);
+  border-radius: 16px;
+  background: var(--h-card-strong);
+}
+
+.pw-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
 }
 
 /* --------------------------------------------------------------------------
