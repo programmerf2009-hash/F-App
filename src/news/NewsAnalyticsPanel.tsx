@@ -219,6 +219,20 @@ export function NewsAnalyticsPanel({ channels }: { channels: NewsChannel[] }) {
                 ))
               )}
             </div>
+
+            <div className="news-analytics__list">
+              <h3>Top Shorts</h3>
+              {data.top_shorts.length === 0 ? (
+                <p className="news-analytics__empty">No Shorts reads in this window.</p>
+              ) : (
+                data.top_shorts.map((item) => (
+                  <div className="news-analytics__row" key={item.id}>
+                    <span>{item.title}</span>
+                    <strong>{formatCount(item.views)}</strong>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </>
       ) : null}

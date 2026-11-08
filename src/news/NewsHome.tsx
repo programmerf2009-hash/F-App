@@ -67,6 +67,29 @@ const SCOPES: Array<{ id: FeedScope; label: string }> = [
   { id: "local", label: "Local" },
 ];
 
+const FILTERS_KEY = "fapp:news:filters:v1";
+
+function loadFeedFilters(): FeedFilters {
+  try {
+    const raw = window.localStorage.getItem(FILTERS_KEY);
+    if (!raw) return DEFAULT_FEED_FILTERS;
+    const saved = JSON.parse(raw) as Partial<FeedFilters>;
+    const categories = Array.isArray(saved.categories)
+      ? saved.categories.filter((item): item is NewsCategory =>
+          FEED_CATEGORIES.includes(item as NewsCategory),
+        )
+      : [];
+    return {
+      categories,
+      content:
+        saved.content === "articles" || saved.content === "flashes" ? saved.content : "all",
+      time: saved.time === "24h" || saved.time === "week" ? saved.time : "any",
+    };
+  } catch {
+    return DEFAULT_FEED_FILTERS;
+  }
+}
+
 export function NewsHome({
   session,
   channels,
@@ -91,8 +114,16 @@ export function NewsHome({
 }: Props) {
   const [scope, setScope] = useState<FeedScope>("foryou");
   const [activeCategory, setActiveCategory] = useState<NewsCategory | "All">("All");
-  const [filters, setFilters] = useState<FeedFilters>(DEFAULT_FEED_FILTERS);
+  const [filters, setFilters] = useState<FeedFilters>(loadFeedFilters);
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(FILTERS_KEY, JSON.stringify(filters));
+    } catch {
+      /* private mode */
+    }
+  }, [filters]);
 
   const [serverArticles, setServerArticles] = useState<NewsArticle[] | null>(null);
   const [serverNext, setServerNext] = useState<ArticleCursor | null>(null);
