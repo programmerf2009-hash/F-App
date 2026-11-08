@@ -47,6 +47,8 @@ interface Props {
   weatherStatus: "loading" | "ready" | "error";
   live: boolean;
   loading: boolean;
+  /** True only for the local demo build (no Supabase configured). */
+  demo: boolean;
   /** Bumped after publishing so the live edition fetches a fresh first page. */
   refreshKey: number;
   onArticlesLoaded: (articles: NewsArticle[], channels: NewsChannel[]) => void;
@@ -76,6 +78,7 @@ export function NewsHome({
   weatherStatus,
   live,
   loading,
+  demo,
   refreshKey,
   onArticlesLoaded,
   onOpenArticle,
@@ -303,7 +306,14 @@ export function NewsHome({
         <section className="news-home__intro" aria-labelledby="news-greeting">
           <div className="news-home__greeting">
             <p className="news-kicker">
-              {dateLabel} · {loading ? "Loading edition" : live ? "Live edition" : "Preview edition"}
+              {dateLabel} ·{" "}
+              {loading
+                ? "Loading edition"
+                : live
+                  ? "Live edition"
+                  : demo
+                    ? "Preview edition"
+                    : "Offline edition"}
             </p>
             <h1 id="news-greeting">
               Good morning,

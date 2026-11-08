@@ -45,7 +45,7 @@ not tied to the VAPID key.
 - Settings → **Device notifications** asks for browser permission and stores
   the endpoint for the signed-in reader.
 - Publishing an urgent article or a Flash from Studio calls
-  `supabase.functions.invoke("news-push", { channelId, title })`.
+  `supabase.functions.invoke("rapid-responder", { channelId, title, body, url })`.
 - The function allows the channel owner and news admins, resolves that
   channel's followers, skips readers with `breaking_alerts = false`, and
   removes endpoints that return 404/410.

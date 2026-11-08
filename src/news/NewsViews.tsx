@@ -1291,7 +1291,7 @@ export function NewsSearchView({
               <p>
                 {live
                   ? "Search runs on the live news index: headlines, summaries, tags and channel names, newest first."
-                  : "This preview searches the stories bundled with the app. Connect the news schema for live full-text search."}
+                  : "Search runs on the stories already on this device. Reconnect for the full live index."}
               </p>
             </div>
           ) : null}

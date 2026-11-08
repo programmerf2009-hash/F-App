@@ -436,8 +436,8 @@ export function NewsSettings({
         </section>
 
         <p className="news-signed-note">
-          In the live edition, preferences, saved stories and reactions follow your account. The
-          preview edition keeps them on this device only.
+          In the live edition, preferences, saved stories and reactions follow your account. When
+          offline, they stay on this device.
         </p>
       </div>
     </main>

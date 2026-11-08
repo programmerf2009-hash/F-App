@@ -125,6 +125,8 @@ export function NewsApp({ session, onClose }: Props) {
   const [live, setLive] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [initialLoading, setInitialLoading] = useState(supabaseConfigured);
+  const [feedError, setFeedError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
 
   const [view, setView] = useState<ViewState>(null);
   const [sheet, setSheet] = useState<SheetState>(null);
@@ -148,20 +150,25 @@ export function NewsApp({ session, onClose }: Props) {
 
   const toastTimer = useRef<number | null>(null);
 
+  /** Demo content is only for local previews; live users must never see it. */
+  const demoMode = !supabaseConfigured;
+
   const baseChannels = useMemo(
-    () => snapshot?.channels ?? [...localChannels, ...DEMO_CHANNELS],
-    [localChannels, snapshot],
+    () =>
+      snapshot?.channels ??
+      (demoMode ? [...localChannels, ...DEMO_CHANNELS] : localChannels),
+    [demoMode, localChannels, snapshot],
   );
   const channels = useMemo(
     () => appendUnique(baseChannels, extraChannels),
     [baseChannels, extraChannels],
   );
   const articles = useMemo(
-    () => appendUnique(snapshot?.articles ?? DEMO_ARTICLES, extraArticles),
-    [extraArticles, snapshot],
+    () => appendUnique(snapshot?.articles ?? (demoMode ? DEMO_ARTICLES : []), extraArticles),
+    [demoMode, extraArticles, snapshot],
   );
-  const flashes = snapshot?.flashes ?? DEMO_FLASHES;
-  const shorts = snapshot?.shorts ?? DEMO_SHORTS;
+  const flashes = snapshot?.flashes ?? (demoMode ? DEMO_FLASHES : []);
+  const shorts = snapshot?.shorts ?? (demoMode ? DEMO_SHORTS : []);
   const myChannels = useMemo(
     () => (snapshot ? channels.filter((channel) => channel.isMine === true) : localChannels),
     [channels, localChannels, snapshot],
@@ -227,6 +234,7 @@ export function NewsApp({ session, onClose }: Props) {
         setPrefs((previous) => ({ ...previous, ...next.prefs }));
       }
       setLive(true);
+      setFeedError(null);
       setDataVersion((value) => value + 1);
 
       // Engagement is optional and must never delay the edition itself.
@@ -240,14 +248,21 @@ export function NewsApp({ session, onClose }: Props) {
           setSavedShorts(engagement.savedShorts);
         });
       }
-    } catch {
-      // Missing schema or offline: keep the local-first preview edition.
-      setSnapshot(null);
+    } catch (error) {
+      // Keep the last good edition on screen. Never substitute demo stories.
+      console.warn("[fnews] live snapshot failed", error);
+      setFeedError("The live edition could not load. Check your connection and try again.");
       setLive(false);
     } finally {
       setInitialLoading(false);
     }
   }, [session]);
+
+  const retryFeed = useCallback(async () => {
+    setRetrying(true);
+    await loadLive();
+    setRetrying(false);
+  }, [loadLive]);
 
   useEffect(() => {
     void loadLive();
@@ -632,6 +647,15 @@ export function NewsApp({ session, onClose }: Props) {
       ) : null}
 
       <div className="news-body">
+        {feedError ? (
+          <div className="news-alert" role="alert">
+            <span className="news-alert__text">{feedError}</span>
+            <button type="button" onClick={() => void retryFeed()} disabled={retrying}>
+              {retrying ? "Retrying…" : "Retry"}
+            </button>
+          </div>
+        ) : null}
+
         {tab === "home" ? (
           <NewsHome
             session={session}
@@ -644,6 +668,7 @@ export function NewsApp({ session, onClose }: Props) {
             weatherStatus={weatherStatus}
             live={live}
             loading={initialLoading}
+            demo={demoMode}
             refreshKey={dataVersion}
             onArticlesLoaded={rememberContent}
             onOpenArticle={(id) => setView({ type: "article", id })}
